@@ -1,9 +1,19 @@
 FROM nginx:alpine
 
-# Copia os arquivos estáticos do projeto para a pasta do Nginx
+# Instala utilitarios do Apache (contem htpasswd para Basic Auth)
+RUN apk add --no-cache apache2-utils
+
+# Copia todos os arquivos estaticos do projeto para o Nginx
 COPY . /usr/share/nginx/html
 
-# Expõe a porta padrão do servidor web
+# Copia os arquivos de configuracao do Nginx e script do container
+COPY nginx.conf.template /etc/nginx/nginx.conf.template
+COPY entrypoint.sh /entrypoint.sh
+
+# Permite execucao do script de inicializacao
+RUN chmod +x /entrypoint.sh
+
+# Expoem a porta padrao do Nginx
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/entrypoint.sh"]
