@@ -4563,53 +4563,416 @@
           );
         }
 
+        // Resgata os estilos customizados ativos do painel
+        const font = document.getElementById("style-font").value;
+        const bgType = document.getElementById("style-bg-type").value;
+        const solidColor = document.getElementById("style-bg-solid").value;
+        const gradColor1 = document.getElementById("style-bg-grad1").value;
+        const gradColor2 = document.getElementById("style-bg-grad2").value;
+        const gradAngle = document.getElementById("style-bg-angle").value;
+        const bgImgUrl = document.getElementById("style-bg-img").value;
+
+        const size0 = document.getElementById("style-size-0").value;
+        const size1 = document.getElementById("style-size-1").value;
+        const size2 = document.getElementById("style-size-2").value;
+
+        const colorText0 = document.getElementById("style-color-text-0").value;
+        const colorCircle0 = document.getElementById("style-color-circle-0").value;
+        const colorText1 = document.getElementById("style-color-text-1").value;
+        const colorCircle1 = document.getElementById("style-color-circle-1").value;
+        const colorText2 = document.getElementById("style-color-text-2").value;
+        const colorCircle2 = document.getElementById("style-color-circle-2").value;
+
+        const gridShow = document.getElementById("style-grid-show").checked;
+        const gridColor = document.getElementById("style-grid-color").value;
+        const linkColor = document.getElementById("style-link-color").value;
+        const linkDashed = document.getElementById("style-link-dashed").checked;
+        const linkMode = document.getElementById("style-link-mode").value;
+        const linkShape = document.getElementById("style-link-shape").value;
+
+        const spacingH = parseInt(document.getElementById("style-spacing-h").value);
+        const spacingV = parseInt(document.getElementById('style-spacing-v').value);
+        const nodeMaxWidth = parseInt(document.getElementById('style-node-maxwidth').value);
+
+        let bodyBackground = "";
+        if (bgType === "solid") {
+          bodyBackground = solidColor;
+        } else if (bgType === "gradient") {
+          bodyBackground = `linear-gradient(${gradAngle}deg, ${gradColor1}, ${gradColor2})`;
+        } else if (bgType === "image") {
+          bodyBackground = `url('${bgImgUrl}') no-repeat center center / cover`;
+        }
+
+        const colorsByTheme = {
+          dark: ["#ffd700", "#00ffcc", "#ff6b6b", "#a8ff78", "#4facfe"],
+          light: ["#0f766e", "#b45309", "#047857", "#6d28d9", "#be185d"]
+        };
+        const themeColors = colorsByTheme[currentTheme] || colorsByTheme.dark;
+
         const htmlContent = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <title>${escapeHtml(title)}</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Fira+Code:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  
   <style>
-    body { font-family: sans-serif; margin: 0; background-color: #0a0e17; height: 100vh; overflow: hidden; }
-    #mindmap { width: 100vw; height: 100vh; }
-    img, video, audio { max-width: 100%; border-radius: 6px; margin-top: 6px; display: block; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-    img { max-height: 120px; object-fit: cover; transition: max-height 0.2s ease; cursor: pointer; }
-    img:hover { max-height: 300px; }
+    :root {
+      --bg-primary: ${bodyBackground};
+      --bg-secondary: ${currentTheme === "light" ? "#ffffff" : "#131b2e"};
+      --bg-tertiary: ${currentTheme === "light" ? "#f1ede9" : "#1e294b"};
+      --text-primary: ${currentTheme === "light" ? "#0f172a" : "#f8fafc"};
+      --text-secondary: ${currentTheme === "light" ? "#475569" : "#94a3b8"};
+      --border-color: ${currentTheme === "light" ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)"};
+      --shadow-color: ${currentTheme === "light" ? "rgba(0, 0, 0, 0.08)" : "rgba(0, 0, 0, 0.5)"};
+      --accent: ${currentTheme === "light" ? "#0f766e" : "#ffd700"};
+      --accent-rgb: ${currentTheme === "light" ? "15, 118, 110" : "255, 215, 0"};
+      --font-family: '${font}', 'Inter', sans-serif;
+      --grid-color: ${gridShow ? gridColor : "transparent"};
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 6px -1px var(--shadow-color);
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .logo span {
+      background: linear-gradient(135deg, var(--accent), #ff007f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-badge {
+      background: rgba(var(--accent-rgb), 0.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .map-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: rgba(0, 0, 0, 0.1);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #mindmap {
+      width: 100%;
+      height: 100%;
+    }
+
+    .markmap-node {
+      font-family: var(--font-family);
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .markmap-node circle {
+      fill: var(--bg-secondary) !important;
+      stroke-width: 2.5px !important;
+      r: 6.5px !important;
+      transition: r 0.2s ease;
+    }
+
+    .markmap-node:hover circle {
+      r: 8.5px !important;
+    }
+
+    .markmap-link {
+      fill: none;
+      stroke-width: 2.5px !important;
+      transition: opacity 0.2s ease;
+      ${linkDashed ? "stroke-dasharray: 5 5 !important;" : ""}
+    }
+
+    .markmap-node text {
+      font-weight: 500;
+      paint-order: stroke;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .markmap-node-depth-0 text { font-size: ${size0}px !important; fill: ${colorText0} !important; }
+    .markmap-node-depth-1 text { font-size: ${size1}px !important; fill: ${colorText1} !important; }
+    .markmap-node-depth-2 text { font-size: ${size2}px !important; fill: ${colorText2} !important; }
+
+    .markmap-node-depth-0 foreignObject div, .markmap-node-depth-0 foreignObject * { font-size: ${size0}px !important; color: ${colorText0} !important; }
+    .markmap-node-depth-1 foreignObject div, .markmap-node-depth-1 foreignObject * { font-size: ${size1}px !important; color: ${colorText1} !important; }
+    .markmap-node-depth-2 foreignObject div, .markmap-node-depth-2 foreignObject * { font-size: ${size2}px !important; color: ${colorText2} !important; }
+
+    .markmap-node-depth-0 circle { fill: ${colorCircle0} !important; stroke: ${colorCircle0} !important; }
+    .markmap-node-depth-1 circle { fill: ${colorCircle1} !important; stroke: ${colorCircle1} !important; }
+    .markmap-node-depth-2 circle { fill: ${colorCircle2} !important; stroke: ${colorCircle2} !important; }
+
+    img, video, audio { max-width: 100%; border-radius: 6px; margin-top: 6px; display: block; border: 1px solid var(--border-color); box-shadow: 0 4px 10px var(--shadow-color); }
+    img { max-height: 120px; object-fit: cover; transition: transform 0.2s ease, max-height 0.2s ease; cursor: pointer; }
+    img:hover { max-height: 300px; transform: scale(1.02); }
     video { max-height: 140px; background: #000; }
     audio { width: 220px; height: 36px; }
+
+    .viewport-controls {
+      position: absolute;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 80;
+    }
+
+    .control-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(var(--bg-secondary), 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.2rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .control-btn:hover {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+      transform: scale(1.08);
+    }
   </style>
+  
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0" integrity="sha384-ebFnd0EsaxuXwJGsKNX32cTd6PqpGGoGSsSkWF1iidb81d+6uo1SC2PySSS+ELRE" crossorigin="anonymous"><\/script>
 </head>
 <body>
-  <svg id="mindmap"></svg>
+  <header>
+    <div class="logo">
+      <span>MindFlow AI</span> 🧠
+      <span class="logo-badge">Interativo</span>
+    </div>
+    <div class="map-title">${escapeHtml(title)}</div>
+    <div style="width:115px;"></div>
+  </header>
+
+  <div id="canvas-container">
+    <svg id="mindmap"></svg>
+
+    <div class="viewport-controls">
+      <button class="control-btn" onclick="zoomIn()" title="Aumentar Zoom">+</button>
+      <button class="control-btn" onclick="zoomOut()" title="Diminuir Zoom">-</button>
+      <button class="control-btn" onclick="fitView()" title="Centralizar Mapa">🎯</button>
+    </div>
+  </div>
+
   <script>
     const markdown = \`${exportedMarkdown.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`;
+    
     document.addEventListener("DOMContentLoaded", () => {
       const script = document.createElement("script");
       script.crossOrigin = "anonymous";
-      script.integrity =
-        "sha384-mpF0ecsfcXfS/gstqW6mJWJRK5zAZyIyyrSlwLNE2yFbh0ypOe3zenukAx1i4RgH";
+      script.integrity = "sha384-mpF0ecsfcXfS/gstqW6mJWJRK5zAZyIyyrSlwLNE2yFbh0ypOe3zenukAx1i4RgH";
       script.src = "https://cdn.jsdelivr.net/npm/markmap-lib@0.16.0";
+      
       script.onload = () => {
         const { Transformer } = window.markmap;
         const transformer = new Transformer();
         const { root } = transformer.transform(markdown);
+        
+        // Define as cores por nível
+        const themeColors = ${JSON.stringify(themeColors)};
+        const linkMode = '${linkMode}';
+        const linkColor = '${linkColor}';
+
         const mm = window.markmap.Markmap.create('#mindmap', {
           duration: 300,
+          spacingHorizontal: ${spacingH},
+          spacingVertical: ${spacingV},
+          maxWidth: ${nodeMaxWidth},
           color: (node) => {
-            const colors = ['#ffd700', '#00ffcc', '#ff6b6b', '#a8ff78', '#4facfe'];
-            return colors[node.depth % colors.length];
+            if (linkMode === 'single') return linkColor;
+            const depth = node.depth !== undefined ? node.depth : (node.data && node.data.depth) || 0;
+            return themeColors[depth % themeColors.length];
           }
         }, root);
-        
-        // Recalcula o D3 assim que mídias carregarem
+
+        // Zoom Helpers
+        window.zoomIn = () => mm.rescale(1.2);
+        window.zoomOut = () => mm.rescale(0.85);
+        window.fitView = () => mm.fit();
+
+        // Setup Grid Blueprint
+        const svg = d3.select('#mindmap');
+        const container = svg.select('g');
+        if (container.node()) {
+          let defs = svg.select('defs');
+          if (defs.empty()) defs = svg.append('defs');
+          defs.html(\`
+            <pattern id="grid-pattern" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="var(--grid-color)" stroke-width="1"/>
+              <circle cx="60" cy="60" r="1.5" fill="var(--grid-color)" opacity="0.3"/>
+            </pattern>
+          \`);
+          container.insert('rect', ':first-child')
+            .attr('width', '100000')
+            .attr('height', '100000')
+            .attr('x', '-50000')
+            .attr('y', '-50000')
+            .attr('fill', 'url(#grid-pattern)')
+            .style('pointer-events', 'none');
+        }
+
+        // Setup Link Observer for Orthogonal/Straight connections
+        const shape = '${linkShape}';
+        if (shape !== 'curve') {
+          function applyLinkShapes() {
+            d3.selectAll('.markmap-link').each(function(d) {
+              if (!d || !d.source || !d.target) return;
+              const sy = d.source.y;
+              const sx = d.source.x;
+              const ty = d.target.y;
+              const tx = d.target.x;
+              if (sy === undefined || sx === undefined || ty === undefined || tx === undefined) return;
+              
+              let pathData = '';
+              if (shape === 'straight') {
+                pathData = \\\`M \\\${sy} \\\${sx} L \\\${ty} \\\${tx}\\\`;
+              } else if (shape === 'orthogonal') {
+                const midY = (sy + ty) / 2;
+                pathData = \\\`M \\\${sy} \\\${sx} L \\\${midY} \\\${sx} L \\\${midY} \\\${tx} L \\\${ty} \\\${tx}\\\`;
+              }
+              d3.select(this).attr('d', pathData);
+            });
+          }
+          applyLinkShapes();
+          
+          const observer = new MutationObserver(() => {
+            observer.disconnect();
+            applyLinkShapes();
+            observer.observe(document.getElementById('mindmap'), {
+              childList: true, subtree: true, attributes: true, attributeFilter: ['d']
+            });
+          });
+          observer.observe(document.getElementById('mindmap'), {
+            childList: true, subtree: true, attributes: true, attributeFilter: ['d']
+          });
+        }
+
+        // Active Path Highlighting
+        d3.selectAll('.markmap-node')
+          .on('mouseenter', function(event, d) {
+            const activeNodeIds = new Set();
+            const activeParentIds = new Set();
+            let curr = d;
+            while (curr) {
+              const id = (curr.data && curr.data.id) || curr.id;
+              if (id !== undefined) activeNodeIds.add(id);
+              if (curr.parent) {
+                const pid = (curr.parent.data && curr.parent.data.id) || curr.parent.id;
+                if (pid !== undefined) activeParentIds.add(pid);
+              }
+              curr = curr.parent;
+            }
+            d3.selectAll('.markmap-link').style('opacity', 0.15);
+            d3.selectAll('.markmap-link')
+              .filter(link => {
+                if (!link.source || !link.target) return false;
+                const sourceId = (link.source.data && link.source.data.id) || link.source.id;
+                const targetId = (link.target.data && link.target.data.id) || link.target.id;
+                return activeNodeIds.has(targetId) && activeParentIds.has(sourceId);
+              })
+              .style('opacity', 1)
+              .style('stroke-width', '4.5px')
+              .style('stroke', 'var(--accent)')
+              .style('filter', 'drop-shadow(0 0 5px var(--accent))');
+
+            d3.selectAll('.markmap-node').style('opacity', 0.35);
+            d3.selectAll('.markmap-node')
+              .filter(node => {
+                const id = (node.data && node.data.id) || node.id;
+                return activeNodeIds.has(id);
+              })
+              .style('opacity', 1);
+          })
+          .on('mouseleave', function() {
+            d3.selectAll('.markmap-link')
+              .style('opacity', null)
+              .style('stroke-width', null)
+              .style('stroke', null)
+              .style('filter', null);
+            d3.selectAll('.markmap-node').style('opacity', null);
+          });
+
+        // Recalcular no D3 assim que mídias carregarem
         document.querySelectorAll('img, video').forEach(media => {
           media.onload = () => mm.setData(root);
           media.onloadedmetadata = () => mm.setData(root);
         });
+        
+        // Ajuste inicial de foco
+        setTimeout(() => mm.fit(), 150);
       };
+      
       document.head.appendChild(script);
     });
+    
+    function escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
   <\/script>
 </body>
 </html>`;
