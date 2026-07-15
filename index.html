@@ -13,10 +13,22 @@
       rel="stylesheet"
     />
 
-    <!-- CDNs do D3 e Markmap -->
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.16.0"></script>
+    <!-- CDNs do D3 e Markmap (versão fixa + SRI para integridade) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/d3@7.9.0"
+      integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0"
+      integrity="sha384-ebFnd0EsaxuXwJGsKNX32cTd6PqpGGoGSsSkWF1iidb81d+6uo1SC2PySSS+ELRE"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/markmap-lib@0.16.0"
+      integrity="sha384-mpF0ecsfcXfS/gstqW6mJWJRK5zAZyIyyrSlwLNE2yFbh0ypOe3zenukAx1i4RgH"
+      crossorigin="anonymous"
+    ></script>
 
     <!-- Banco de mapas carregado localmente -->
     <script src="maps.js"></script>
@@ -824,6 +836,11 @@
         filter: brightness(1.1);
       }
 
+      /* Debug log font (movido do style inline para evitar entity-encoding) */
+      #debug-log {
+        font-family: "Fira Code", monospace;
+      }
+
       /* Toast Notification */
       .toast {
         position: absolute;
@@ -1032,6 +1049,14 @@
               onclick="createNewMap()"
             >
               ➕ Novo Mapa
+            </button>
+            <button
+              class="btn"
+              style="flex: 1; justify-content: center"
+              onclick="importMarkdownFile()"
+              title="Importar arquivo .md como novo mapa"
+            >
+              📥 Importar .md
             </button>
           </div>
 
@@ -1909,7 +1934,6 @@
         border: 1px solid var(--border-color);
         padding: 12px;
         border-radius: 8px;
-        font-family: &quot;Fira Code&quot;, monospace;
         font-size: 11px;
         max-height: 200px;
         overflow-y: auto;
@@ -2245,7 +2269,125 @@
       }
 
       function saveMapsToLocalStorage() {
-        localStorage.setItem("mindflow_maps_data", JSON.stringify(maps));
+        try {
+          localStorage.setItem("mindflow_maps_data", JSON.stringify(maps));
+        } catch (err) {
+          console.error("Erro ao salvar mapas no LocalStorage:", err);
+          // QuotaExceededError (cota ~5MB estourada) ou modo privado
+          if (
+            err &&
+            (err.name === "QuotaExceededError" ||
+              err.code === 22 ||
+              /quota/i.test(String(err && err.message)))
+          ) {
+            showToast(
+              "Armazenamento cheio! Remova mapas antigos ou mídias grandes. ⚠️",
+            );
+          } else {
+            showToast("Não foi possível salvar o mapa. ⚠️");
+          }
+        }
+      }
+
+      // Funde os mapas compilados (maps.js) com os salvos no LocalStorage.
+      // Preserva edições do usuário: um mapa só é sobrescrito pela versão
+      // compilada mais recente se o usuário não o tiver editado (conteúdo
+      // idêntico ao `_compiledContent` registrado no último seed).
+      // Mapas novos vindos do build (IA criou .md) são adicionados.
+      function loadAndMergeMaps() {
+        const compiled = Array.isArray(window.MINDMAPS_DATA)
+          ? window.MINDMAPS_DATA
+          : [];
+        let saved = [];
+        const raw = localStorage.getItem("mindflow_maps_data");
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) saved = parsed;
+          } catch (err) {
+            console.error("Erro ao ler mapas salvos, usando build:", err);
+          }
+        }
+
+        // Se nada salvo: semeia com o build.
+        if (saved.length === 0) {
+          maps = compiled.map((m) => ({
+            ...m,
+            _compiledContent: m.content,
+          }));
+          saveMapsToLocalStorage();
+          return;
+        }
+
+        let importedCount = 0;
+        compiled.forEach((cm) => {
+          const existingIdx = saved.findIndex((s) => s.id === cm.id);
+          if (existingIdx === -1) {
+            // Novo mapa do build (IA criou um .md)
+            saved.unshift({ ...cm, _compiledContent: cm.content });
+            importedCount++;
+          } else {
+            const existing = saved[existingIdx];
+            const baseline = existing._compiledContent;
+            // Se o usuário não editou (conteúdo == baseline), absorve update do build.
+            if (baseline !== undefined && existing.content === baseline) {
+              existing.content = cm.content;
+              existing.title = cm.title;
+              existing.filename = cm.filename;
+              existing._compiledContent = cm.content;
+            }
+            // Se editou (content !== baseline), preserva a versão do usuário.
+          }
+        });
+
+        maps = saved;
+        saveMapsToLocalStorage();
+        if (importedCount > 0) {
+          showToast(
+            `${importedCount} novo(s) mapa(s) do build importado(s)! ✨`,
+          );
+        }
+      }
+
+      // Importa um arquivo .md local como um novo mapa.
+      function importMarkdownFile() {
+        let input = document.getElementById("md-import-input");
+        if (!input) {
+          input = document.createElement("input");
+          input.type = "file";
+          input.id = "md-import-input";
+          input.accept = ".md,text/markdown,text/plain";
+          input.style.display = "none";
+          document.body.appendChild(input);
+          input.addEventListener("change", (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              const content = String(reader.result || "");
+              const firstLine = content.split("\n")[0] || "";
+              const title = firstLine.startsWith("# ")
+                ? firstLine.replace(/^#\s+/, "").trim()
+                : file.name.replace(/\.md$/i, "");
+              const newId = `mapa-import-${Date.now()}`;
+              maps.unshift({
+                id: newId,
+                title: title || "Mapa Importado",
+                filename: file.name,
+                content,
+              });
+              saveMapsToLocalStorage();
+              renderMapsList();
+              switchTab("edit");
+              loadMap(newId);
+              showToast("Mapa importado! 📥");
+            };
+            reader.onerror = () => showToast("Erro ao ler arquivo ❌");
+            reader.readAsText(file);
+            input.value = "";
+          });
+        }
+        input.click();
       }
 
       // --- GERENCIADOR DE HISTÓRICO (UNDO / REDO) ---
@@ -2703,7 +2845,7 @@
         );
         const editable = document.getElementById("inline-editor-editable");
 
-        editable.innerHTML = sanitizeHTML(markdownToHtmlForEdit(node.content));
+        setSanitizedHTML(editable, markdownToHtmlForEdit(node.content));
         resolveLocalMediaInElement(editable); // Resolve links de mídia local para exibição no editor
         editable.style.minWidth = `${bbox.width + 15}px`;
 
@@ -2764,19 +2906,73 @@
         ).style.display = "none";
       }
 
+      // Envolvolve a seleção atual do contenteditable com um elemento.
+      // Substitui document.execCommand(bold/italic/createLink) (deprecated).
+      function wrapSelectionWith(el, attrs) {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        if (attrs) {
+          Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+        }
+        try {
+          if (!range.collapsed) range.surroundContents(el);
+          else return; // nada selecionado
+        } catch (e) {
+          // surroundContents falha se a seleção cruza elementos parcialmente.
+          const frag = range.extractContents();
+          el.appendChild(frag);
+          range.insertNode(el);
+        }
+        sel.removeAllRanges();
+        const nr = document.createRange();
+        nr.selectNodeContents(el);
+        sel.addRange(nr);
+      }
+
+      // Insere HTML sanitizado no cursor do contenteditable.
+      // Substitui document.execCommand('insertHTML', ...) (deprecated).
+      function insertSanitizedHTMLAtCaret(html) {
+        const editable = document.getElementById("inline-editor-editable");
+        editable.focus();
+        const sel = window.getSelection();
+        if (!sel) return;
+        let range = sel.rangeCount ? sel.getRangeAt(0) : null;
+        if (!range || !editable.contains(range.commonAncestorContainer)) {
+          range = document.createRange();
+          range.selectNodeContents(editable);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        range.deleteContents();
+        const frag = sanitizeHTML(html); // DocumentFragment limpo
+        range.insertNode(frag);
+        // Move o cursor para o final do conteúdo inserido.
+        const newRange = document.createRange();
+        newRange.selectNodeContents(editable);
+        newRange.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      }
+
       function formatActiveNode(command) {
         if (!isEditingInline) return;
         const editable = document.getElementById("inline-editor-editable");
         editable.focus();
 
         if (command === "bold") {
-          document.execCommand("bold", false, null);
+          wrapSelectionWith(document.createElement("strong"));
         } else if (command === "italic") {
-          document.execCommand("italic", false, null);
+          wrapSelectionWith(document.createElement("em"));
         } else if (command === "link") {
           const url = prompt("Digite a URL do link:");
           if (url) {
-            document.execCommand("createLink", false, url);
+            wrapSelectionWith(document.createElement("a"), {
+              href: url,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            });
           }
         }
       }
@@ -2834,11 +3030,7 @@
                   htmlToInsert = `<br><audio src="${blobUrl}" data-original-src="${mediaId}" controls></audio>`;
                 }
 
-                const editable = document.getElementById(
-                  "inline-editor-editable",
-                );
-                editable.focus();
-                document.execCommand("insertHTML", false, htmlToInsert);
+                insertSanitizedHTMLAtCaret(htmlToInsert);
 
                 uploader.value = "";
                 showToast("Mídia local inserida! ✔️");
@@ -2864,9 +3056,7 @@
             htmlToInsert = `<br><audio src="${url}" controls></audio>`;
           }
 
-          const editable = document.getElementById("inline-editor-editable");
-          editable.focus();
-          document.execCommand("insertHTML", false, htmlToInsert);
+          insertSanitizedHTMLAtCaret(htmlToInsert);
         }
       }
 
@@ -2898,7 +3088,7 @@
       // Serializador DOM robusto de HTML para Markdown de nós
       function htmlToMarkdown(html) {
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = sanitizeHTML(html);
+        setSanitizedHTML(tempDiv, html);
 
         function serialize(node) {
           if (node.nodeType === Node.TEXT_NODE) {
@@ -2959,7 +3149,8 @@
         return markdown.trim();
       }
 
-      // Sanitiza HTML removendo tags e atributos perigosos
+      // Sanitiza HTML removendo tags e atributos perigosos.
+      // Retorna um DocumentFragment com nós já limpos (sem usar innerHTML).
       function sanitizeHTML(html) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
@@ -2983,7 +3174,17 @@
           });
         });
 
-        return doc.body.innerHTML;
+        const fragment = document.createDocumentFragment();
+        while (doc.body.firstChild) {
+          fragment.appendChild(doc.body.firstChild);
+        }
+        return fragment;
+      }
+
+      // Atribui HTML sanitizado a um elemento de forma segura (sem innerHTML =)
+      function setSanitizedHTML(el, html) {
+        const fragment = sanitizeHTML(html);
+        el.replaceChildren(fragment);
       }
 
       function markdownToHtmlForEdit(md) {
@@ -3090,63 +3291,84 @@
         );
       }
 
+      // Delegacao no SVG (uma vez): funciona para nos atuais e para os criados
+      // depois ao expandir/recolher via data join do d3, sem precisar religar.
+      let hoverHighlightSetup = false;
       function setupActivePathHighlighting() {
-        d3.selectAll(".markmap-node")
-          .on("mouseenter", function (event, d) {
-            if (isEditingInline) return;
+        if (hoverHighlightSetup) return;
+        hoverHighlightSetup = true;
 
-            const activeNodeIds = new Set();
-            const activeParentIds = new Set();
-            let curr = d;
+        const svg = document.getElementById("mindmap-svg");
 
-            while (curr) {
-              const id = (curr.data && curr.data.id) || curr.id;
-              if (id !== undefined) activeNodeIds.add(id);
+        svg.addEventListener("mouseover", (event) => {
+          if (isEditingInline) return;
+          const nodeGroup = event.target.closest(".markmap-node");
+          if (!nodeGroup) return;
 
-              if (curr.parent) {
-                const pid =
-                  (curr.parent.data && curr.parent.data.id) || curr.parent.id;
-                if (pid !== undefined) activeParentIds.add(pid);
-              }
-              curr = curr.parent;
+          const d = d3.select(nodeGroup).datum();
+          if (!d) return;
+
+          const activeNodeIds = new Set();
+          const activeParentIds = new Set();
+          let curr = d;
+
+          while (curr) {
+            const id = (curr.data && curr.data.id) || curr.id;
+            if (id !== undefined) activeNodeIds.add(id);
+
+            if (curr.parent) {
+              const pid =
+                (curr.parent.data && curr.parent.data.id) || curr.parent.id;
+              if (pid !== undefined) activeParentIds.add(pid);
             }
+            curr = curr.parent;
+          }
 
-            d3.selectAll(".markmap-link").style("opacity", 0.15);
+          d3.selectAll(".markmap-link").style("opacity", 0.15);
 
-            d3.selectAll(".markmap-link")
-              .filter((link) => {
-                if (!link.source || !link.target) return false;
-                const sourceId =
-                  (link.source.data && link.source.data.id) || link.source.id;
-                const targetId =
-                  (link.target.data && link.target.data.id) || link.target.id;
-                return (
-                  activeNodeIds.has(targetId) && activeParentIds.has(sourceId)
-                );
-              })
-              .style("opacity", 1)
-              .style("stroke-width", "4.5px")
-              .style("stroke", "var(--accent)")
-              .style("filter", "drop-shadow(0 0 5px var(--accent))");
+          d3.selectAll(".markmap-link")
+            .filter((link) => {
+              if (!link.source || !link.target) return false;
+              const sourceId =
+                (link.source.data && link.source.data.id) || link.source.id;
+              const targetId =
+                (link.target.data && link.target.data.id) || link.target.id;
+              return (
+                activeNodeIds.has(targetId) && activeParentIds.has(sourceId)
+              );
+            })
+            .style("opacity", 1)
+            .style("stroke-width", "4.5px")
+            .style("stroke", "var(--accent)")
+            .style("filter", "drop-shadow(0 0 5px var(--accent))");
 
-            d3.selectAll(".markmap-node").style("opacity", 0.35);
+          d3.selectAll(".markmap-node").style("opacity", 0.35);
 
-            d3.selectAll(".markmap-node")
-              .filter((node) => {
-                const id = (node.data && node.data.id) || node.id;
-                return activeNodeIds.has(id);
-              })
-              .style("opacity", 1);
-          })
-          .on("mouseleave", function () {
-            d3.selectAll(".markmap-link")
-              .style("opacity", null)
-              .style("stroke-width", null)
-              .style("stroke", null)
-              .style("filter", null);
+          d3.selectAll(".markmap-node")
+            .filter((node) => {
+              const id = (node.data && node.data.id) || node.id;
+              return activeNodeIds.has(id);
+            })
+            .style("opacity", 1);
+        });
 
-            d3.selectAll(".markmap-node").style("opacity", null);
-          });
+        svg.addEventListener("mouseout", (event) => {
+          if (isEditingInline) return;
+          if (!event.target.closest(".markmap-node")) return;
+          // Se esta se movendo para outro no (ou dentro do mesmo no),
+          // nao reseta — o mouseover do novo alvo cuida disso, evita flicker.
+          const related = event.relatedTarget;
+          if (related && related.closest && related.closest(".markmap-node"))
+            return;
+
+          d3.selectAll(".markmap-link")
+            .style("opacity", null)
+            .style("stroke-width", null)
+            .style("stroke", null)
+            .style("filter", null);
+
+          d3.selectAll(".markmap-node").style("opacity", null);
+        });
       }
 
       // --- REORDENAÇÃO DE NÓS (UP/DOWN/LEFT/RIGHT) VIA FLOTING MENU ---
@@ -3834,12 +4056,49 @@
         }
       }
 
+      // Adiciona um filho (subtópico) ao nó na posição `index`.
+      // Insere como último filho: após todos os descendentes do nó atual.
+      function addVisualNodeChild(index) {
+        const node = flatNodes[index];
+        if (!node) return;
+
+        saveState();
+
+        // Encontra o ponto de inserção: depois do último descendente
+        // (enquanto o nível for maior que o do nó pai).
+        let insertAt = index + 1;
+        while (
+          insertAt < flatNodes.length &&
+          flatNodes[insertAt].level > node.level
+        ) {
+          insertAt++;
+        }
+
+        const newNode = {
+          id: "node-new-" + Date.now(),
+          text: "",
+          level: node.level + 1,
+        };
+        flatNodes.splice(insertAt, 0, newNode);
+        syncVisualOutlinerToTree();
+
+        setTimeout(() => {
+          const input = document.getElementById(`visual-input-${insertAt}`);
+          if (input) input.focus();
+        }, 50);
+      }
+
       function changeVisualNodeLevel(index, dir) {
         const node = flatNodes[index];
         if (!node) return;
 
         const minLevel = index === 0 ? 0 : 1;
-        node.level = Math.max(minLevel, node.level + dir);
+        // Evita lacunas de nivel que o parser de markdown normalizaria
+        // silenciosamente, dessincronizando flatNodes e a árvore:
+        // um nó pode ter no máximo nivelDoAnterior + 1.
+        const prevLevel = index === 0 ? 0 : flatNodes[index - 1].level;
+        const maxLevel = prevLevel + 1;
+        node.level = Math.max(minLevel, Math.min(maxLevel, node.level + dir));
 
         syncVisualOutlinerToTree();
 
@@ -4318,8 +4577,8 @@
     video { max-height: 140px; background: #000; }
     audio { width: 220px; height: 36px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"><\/script>
-  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0" integrity="sha384-ebFnd0EsaxuXwJGsKNX32cTd6PqpGGoGSsSkWF1iidb81d+6uo1SC2PySSS+ELRE" crossorigin="anonymous"><\/script>
 </head>
 <body>
   <svg id="mindmap"></svg>
@@ -4327,6 +4586,9 @@
     const markdown = \`${exportedMarkdown.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`;
     document.addEventListener("DOMContentLoaded", () => {
       const script = document.createElement("script");
+      script.crossOrigin = "anonymous";
+      script.integrity =
+        "sha384-mpF0ecsfcXfS/gstqW6mJWJRK5zAZyIyyrSlwLNE2yFbh0ypOe3zenukAx1i4RgH";
       script.src = "https://cdn.jsdelivr.net/npm/markmap-lib@0.16.0";
       script.onload = () => {
         const { Transformer } = window.markmap;
@@ -4538,18 +4800,9 @@
         loadStylesFromLocalStorage();
         initIndexedDB(); // Inicializa IndexedDB para mídias locais e atualiza o mapa ao carregar o banco
 
-        // Inicia os mapas buscando do LocalStorage ou do maps.js
-        const savedMaps = localStorage.getItem("mindflow_maps_data");
-        if (savedMaps) {
-          try {
-            maps = JSON.parse(savedMaps);
-          } catch (err) {
-            console.error("Erro ao carregar mapas do LocalStorage:", err);
-            maps = window.MINDMAPS_DATA || [];
-          }
-        } else {
-          maps = window.MINDMAPS_DATA || [];
-        }
+        // Funda mapas do build (maps.js) com os salvos no LocalStorage.
+        // Preserva edições e incorpora mapas novos criados pela IA.
+        loadAndMergeMaps();
 
         renderMapsList();
 
