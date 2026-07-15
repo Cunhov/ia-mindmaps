@@ -1,0 +1,4567 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindFlow AI 🧠 - Mapas Mentais para Vídeos</title>
+
+    <!-- Fontes do Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Fira+Code:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- CDNs do D3 e Markmap -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.16.0"></script>
+
+    <!-- Banco de mapas carregado localmente -->
+    <script src="maps.js"></script>
+
+    <style>
+      :root {
+        /* Estilos Padrão (Tema Escuro) */
+        --bg-primary: #0a0e17;
+        --bg-secondary: #131b2e;
+        --bg-tertiary: #1e294b;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent: #ffd700;
+        --accent-rgb: 255, 215, 0;
+        --border-color: rgba(255, 255, 255, 0.08);
+        --shadow-color: rgba(0, 0, 0, 0.5);
+        --font-family: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
+        --grid-color: #1e294b;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-family);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        transition:
+          background 0.3s ease,
+          color 0.3s ease;
+      }
+
+      /* --- HEADER --- */
+      header {
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 0.75rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+        transition:
+          transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+          background-color 0.3s ease;
+        box-shadow: 0 4px 6px -1px var(--shadow-color);
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+      }
+
+      .logo span {
+        background: linear-gradient(135deg, var(--accent), #ff007f);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .logo-badge {
+        background: rgba(var(--accent-rgb), 0.1);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .current-map-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: rgba(0, 0, 0, 0.2);
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        max-width: 250px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .select-theme {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        outline: none;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.85rem;
+        transition: border-color 0.2s;
+      }
+
+      .select-theme:focus {
+        border-color: var(--accent);
+      }
+
+      .btn {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: 0.4rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+      }
+
+      .btn:hover {
+        background-color: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+        transform: translateY(-1px);
+      }
+
+      .btn-primary {
+        background-color: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+      }
+
+      .btn-primary:hover {
+        filter: brightness(1.1);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
+      }
+
+      /* --- WORKSPACE --- */
+      .workspace {
+        flex: 1;
+        display: flex;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* --- SIDEBAR --- */
+      .sidebar {
+        width: 400px;
+        background-color: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        z-index: 90;
+        transition:
+          transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+          margin-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .sidebar-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        background-color: rgba(0, 0, 0, 0.15);
+      }
+
+      .tab-btn {
+        flex: 1;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        padding: 0.85rem;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-align: center;
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
+      }
+
+      .tab-btn:hover {
+        color: var(--text-primary);
+        background-color: rgba(255, 255, 255, 0.02);
+      }
+
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        background-color: rgba(var(--accent-rgb), 0.03);
+      }
+
+      .tab-content {
+        flex: 1;
+        display: none;
+        flex-direction: column;
+        overflow-y: auto;
+        padding: 1.25rem;
+        gap: 1.25rem;
+      }
+
+      .tab-content.active {
+        display: flex;
+      }
+
+      /* --- TAB: MAPAS LIST --- */
+      .search-box {
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        color: var(--text-primary);
+        outline: none;
+        font-size: 0.85rem;
+        width: 100%;
+      }
+
+      .search-box:focus {
+        border-color: var(--accent);
+      }
+
+      .maps-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        list-style: none;
+        max-height: 250px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+
+      .map-item {
+        padding: 0.75rem;
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+      }
+
+      .map-item:hover {
+        border-color: var(--accent);
+        transform: translateX(3px);
+        background-color: rgba(var(--accent-rgb), 0.02);
+      }
+
+      .map-item.active {
+        border-color: var(--accent);
+        background-color: rgba(var(--accent-rgb), 0.05);
+      }
+
+      .map-item-meta {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+      }
+
+      .delete-map-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .delete-map-btn:hover {
+        background-color: rgba(239, 68, 68, 0.15);
+        color: #ef4444 !important;
+      }
+
+      .ia-guide-card {
+        background: linear-gradient(
+          135deg,
+          rgba(var(--accent-rgb), 0.08) 0%,
+          rgba(255, 0, 127, 0.04) 100%
+        );
+        border: 1px dashed rgba(var(--accent-rgb), 0.3);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: auto;
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+
+      .ia-guide-card h4 {
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .ia-guide-card code {
+        background: var(--bg-primary);
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        font-family: "Fira Code", monospace;
+        color: #ff007f;
+      }
+
+      /* --- TAB: EDITOR (MD & VISUAL) --- */
+      .editor-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        height: 100%;
+      }
+
+      .editor-mode-toggle {
+        display: flex;
+        margin-bottom: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 2px;
+        background: rgba(0, 0, 0, 0.15);
+      }
+
+      .editor-mode-toggle button {
+        flex: 1;
+        padding: 0.4rem;
+        font-size: 0.8rem;
+        border: none;
+        border-radius: 4px;
+        background: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .editor-mode-toggle button.active {
+        background: var(--accent);
+        color: var(--bg-primary);
+      }
+
+      .editor-header-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+
+      .editor-textarea {
+        flex: 1;
+        width: 100%;
+        min-height: 250px;
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 0.75rem;
+        color: var(--text-primary);
+        font-family: "Fira Code", "Courier New", monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        resize: none;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .editor-textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.1);
+      }
+
+      /* Visual Editor Outliner */
+      .visual-editor-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        overflow-y: auto;
+        max-height: 480px;
+        padding-right: 4px;
+      }
+
+      .visual-node-row {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0;
+        position: relative;
+        transition: all 0.2s ease;
+      }
+
+      .visual-node-indent-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1.5px;
+        background-color: var(--border-color);
+        left: -8px;
+      }
+
+      .visual-node-input {
+        flex: 1;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0.35rem 0.5rem;
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        outline: none;
+        font-family: var(--font-family);
+        transition: border-color 0.2s;
+      }
+
+      .visual-node-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 5px rgba(var(--accent-rgb), 0.15);
+      }
+
+      .visual-node-actions {
+        display: flex;
+        gap: 0.15rem;
+        opacity: 0.15;
+        transition: opacity 0.2s ease;
+      }
+
+      .visual-node-row:hover .visual-node-actions {
+        opacity: 1;
+      }
+
+      .visual-node-actions button {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.1s ease;
+      }
+
+      .visual-node-actions button:hover {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+      }
+
+      .visual-node-actions button.delete-btn {
+        font-weight: bold;
+      }
+
+      .visual-node-actions button.delete-btn:hover {
+        background: #ef4444;
+        color: white;
+        border-color: #ef4444;
+      }
+
+      /* --- TAB: ESTILO (CUSTOMIZAÇÃO) --- */
+      .style-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+
+      .style-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      .style-sub-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .style-color-picker {
+        -webkit-appearance: none;
+        border: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        cursor: pointer;
+        background: transparent;
+      }
+
+      .style-color-picker::-webkit-color-swatch-wrapper {
+        padding: 0;
+      }
+
+      .style-color-picker::-webkit-color-swatch {
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+      }
+
+      .size-slider-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.4rem;
+      }
+
+      .size-slider-row input {
+        width: 55%;
+        cursor: pointer;
+      }
+
+      .node-color-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.4rem;
+      }
+
+      .node-color-row-pickers {
+        display: flex;
+        gap: 0.4rem;
+      }
+
+      .node-color-row-pickers span {
+        font-size: 0.7rem;
+      }
+
+      .node-color-row-pickers input {
+        -webkit-appearance: none;
+        border: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        background: transparent;
+      }
+
+      .node-color-row-pickers input::-webkit-color-swatch-wrapper {
+        padding: 0;
+      }
+
+      .node-color-row-pickers input::-webkit-color-swatch {
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+      }
+
+      /* --- CANVAS AREA --- */
+      .canvas-container {
+        flex: 1;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+
+      #mindmap-svg {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+      }
+
+      /* Customização dos nós do Markmap */
+      .markmap-node {
+        font-family: var(--font-family);
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.2s ease;
+      }
+
+      .markmap-node circle {
+        fill: var(--bg-secondary) !important;
+        stroke-width: 2.5px !important;
+        r: 6.5px !important;
+        transition:
+          r 0.2s ease,
+          fill 0.2s ease,
+          stroke-width 0.1s ease,
+          stroke 0.1s ease;
+      }
+
+      .markmap-node:hover circle {
+        r: 8.5px !important;
+      }
+
+      .markmap-link {
+        fill: none;
+        stroke-width: 2.5px !important;
+        transition:
+          stroke 0.3s ease,
+          opacity 0.2s ease,
+          stroke-width 0.2s ease;
+      }
+
+      .markmap-node text {
+        font-weight: 500;
+        paint-order: stroke;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: font-size 0.2s;
+      }
+
+      /* Estilos para Mídias dentro dos Nós */
+      .markmap-node foreignObject img {
+        max-width: 100%;
+        height: auto;
+        max-height: 120px;
+        object-fit: cover;
+        border-radius: 6px;
+        margin-top: 6px;
+        display: block;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 10px var(--shadow-color);
+        transition:
+          transform 0.2s ease,
+          max-height 0.2s ease;
+        cursor: pointer;
+      }
+
+      .markmap-node foreignObject img:hover {
+        max-height: 300px;
+        transform: scale(1.02);
+      }
+
+      .markmap-node foreignObject video {
+        max-width: 100%;
+        max-height: 140px;
+        border-radius: 6px;
+        margin-top: 6px;
+        display: block;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 10px var(--shadow-color);
+        background: #000;
+      }
+
+      .markmap-node foreignObject audio {
+        max-width: 100%;
+        width: 220px;
+        height: 36px;
+        border-radius: 6px;
+        margin-top: 6px;
+        display: block;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 10px var(--shadow-color);
+      }
+
+      /* Notion Floating rich toolbar style sheets */
+      #notion-toolbar {
+        display: flex;
+        gap: 0.2rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 4px;
+        box-shadow: 0 10px 25px var(--shadow-color);
+        backdrop-filter: blur(12px);
+        width: fit-content;
+        align-self: center;
+        align-items: center;
+      }
+
+      #notion-toolbar button {
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        transition: all 0.2s;
+      }
+
+      #notion-toolbar button:hover {
+        background: var(--bg-tertiary);
+        color: var(--accent);
+      }
+
+      /* Viewport Floating controls */
+      .viewport-controls {
+        position: absolute;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 80;
+        transition: opacity 0.3s ease;
+      }
+
+      .control-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(var(--bg-secondary), 0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
+      }
+
+      .control-btn:hover {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+        transform: scale(1.08);
+      }
+
+      /* Toggle Sidebar trigger floating button */
+      .toggle-sidebar-floating {
+        position: absolute;
+        top: 1.5rem;
+        left: 1.5rem;
+        z-index: 95;
+        display: none;
+      }
+
+      /* --- PRESENTATION MODE --- */
+      body.presentation-mode header {
+        transform: translateY(-100%);
+        height: 0;
+        padding: 0;
+        border: none;
+        overflow: hidden;
+      }
+
+      body.presentation-mode .sidebar {
+        transform: translateX(-100%);
+        margin-left: -400px;
+      }
+
+      body.presentation-mode .toggle-sidebar-floating {
+        display: flex;
+      }
+
+      body.presentation-mode .viewport-controls {
+        opacity: 0.15;
+      }
+
+      body.presentation-mode .viewport-controls:hover {
+        opacity: 1;
+      }
+
+      .exit-presentation-banner {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        z-index: 95;
+        background: rgba(var(--bg-secondary), 0.9);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+        border-radius: 30px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        display: none;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      body.presentation-mode .exit-presentation-banner {
+        display: flex;
+      }
+
+      .exit-btn {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border: none;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 0.75rem;
+      }
+
+      .exit-btn:hover {
+        filter: brightness(1.1);
+      }
+
+      /* Toast Notification */
+      .toast {
+        position: absolute;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: rgba(20, 20, 30, 0.95);
+        border: 1px solid var(--accent);
+        color: var(--text-primary);
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        z-index: 200;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+      }
+
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* Modal Help */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+
+      .modal-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .modal-content {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        width: 450px;
+        max-width: 90%;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        transform: scale(0.9);
+        transition: transform 0.2s ease;
+      }
+
+      .modal-overlay.open .modal-content {
+        transform: scale(1);
+      }
+
+      .modal-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--accent);
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-close {
+        cursor: pointer;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1.5rem;
+      }
+
+      .modal-close:hover {
+        color: var(--text-primary);
+      }
+
+      .shortcut-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 0.9rem;
+      }
+
+      .shortcut-key {
+        font-family: "Fira Code", monospace;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        padding: 0.1rem 0.5rem;
+        border-radius: 4px;
+        color: var(--accent);
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+    </style>
+    <style id="dynamic-styles"></style>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <header id="app-header">
+      <div class="logo">
+        <span>MindFlow AI</span> 🧠
+        <span class="logo-badge">YouTube</span>
+      </div>
+
+      <div id="active-map-title" class="current-map-title">Carregando...</div>
+
+      <div class="header-actions">
+        <select
+          id="theme-selector"
+          class="select-theme"
+          onchange="loadThemePreset(this.value)"
+        >
+          <option value="dark" selected>🌑 Modo Escuro</option>
+          <option value="light">☀️ Modo Claro</option>
+        </select>
+
+        <button class="btn" onclick="openHelp()">❓ Atalhos</button>
+
+        <button class="btn btn-primary" onclick="togglePresentationMode()">
+          ▶️ Apresentar
+        </button>
+      </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="workspace">
+      <!-- FLOATING PRESENTATION MENU -->
+      <button
+        class="btn toggle-sidebar-floating"
+        onclick="togglePresentationMode()"
+        title="Sair da apresentação"
+      >
+        ◀️ Sair
+      </button>
+
+      <div class="exit-presentation-banner">
+        <span>Modo Apresentação Ativo</span>
+        <kbd
+          style="
+            font-family: monospace;
+            background: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            border: 1px solid var(--border-color);
+          "
+          >P ou ESC para sair</kbd
+        >
+        <button class="exit-btn" onclick="togglePresentationMode()">
+          Sair
+        </button>
+      </div>
+
+      <!-- SIDEBAR -->
+      <aside id="app-sidebar" class="sidebar">
+        <div class="sidebar-tabs">
+          <button
+            id="tab-maps-btn"
+            class="tab-btn active"
+            onclick="switchTab('maps')"
+          >
+            📁 Mapas
+          </button>
+          <button id="tab-edit-btn" class="tab-btn" onclick="switchTab('edit')">
+            ✏️ Editor
+          </button>
+          <button
+            id="tab-style-btn"
+            class="tab-btn"
+            onclick="switchTab('style')"
+          >
+            🎨 Estilo
+          </button>
+        </div>
+
+        <!-- Tab: Maps List -->
+        <div id="tab-maps" class="tab-content active">
+          <input
+            type="text"
+            id="map-search"
+            class="search-box"
+            placeholder="🔎 Buscar mapa..."
+            oninput="filterMaps()"
+          />
+
+          <ul id="maps-list" class="maps-list">
+            <!-- Populado dinamicamente -->
+          </ul>
+
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
+            <button
+              class="btn"
+              style="flex: 1; justify-content: center"
+              onclick="createNewMap()"
+            >
+              ➕ Novo Mapa
+            </button>
+          </div>
+
+          <div class="ia-guide-card">
+            <h4>🤖 Como criar com IA?</h4>
+            Diga o tema e instruções para o <strong>Antigravity</strong> no
+            chat. Ele criará o arquivo <code>.md</code> na pasta do app e o
+            compilará. Depois é só atualizar esta página!
+          </div>
+        </div>
+
+        <!-- Tab: Markdown / Visual Editor -->
+        <div id="tab-edit" class="tab-content">
+          <div class="editor-container">
+            <div class="editor-mode-toggle">
+              <button
+                id="editor-mode-md"
+                class="active"
+                onclick="setEditorMode('md')"
+              >
+                📝 Markdown
+              </button>
+              <button id="editor-mode-visual" onclick="setEditorMode('visual')">
+                🌳 Editor Lateral
+              </button>
+            </div>
+
+            <!-- Markdown Editor Panel -->
+            <div
+              id="editor-md-area"
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                flex: 1;
+              "
+            >
+              <div class="editor-header-info">
+                <span>Formato Markdown</span>
+                <span id="char-counter">0 caracteres</span>
+              </div>
+              <textarea
+                id="editor-textarea"
+                class="editor-textarea"
+                placeholder="# Título do Mapa&#10;&#10;## Tópico 1&#10;- Subtópico A"
+                oninput="handleEditorInput()"
+              ></textarea>
+            </div>
+
+            <!-- Visual Outliner Panel -->
+            <div
+              id="editor-visual-area"
+              style="
+                display: none;
+                flex-direction: column;
+                gap: 0.75rem;
+                flex: 1;
+              "
+            >
+              <div class="editor-header-info">
+                <span>Modo Tópicos (Estilo Notion/Workflowy)</span>
+                <span>DICA: Use ENTER para novo, TAB para recuar</span>
+              </div>
+              <div id="visual-editor-container" class="visual-editor-container">
+                <!-- Grid de inputs visuais populado por JS -->
+              </div>
+            </div>
+
+            <!-- Action buttons common for both editors -->
+            <div style="display: flex; gap: 0.5rem">
+              <button
+                class="btn"
+                style="flex: 1; justify-content: center"
+                onclick="downloadMarkdown()"
+                title="Baixar Markdown (.md)"
+              >
+                📥 Baixar
+              </button>
+              <button
+                class="btn btn-primary"
+                style="flex: 1; justify-content: center"
+                onclick="copyMarkdownToClipboard()"
+                title="Copiar Markdown"
+              >
+                📋 Copiar
+              </button>
+            </div>
+            <button
+              class="btn"
+              style="justify-content: center; width: 100%"
+              onclick="downloadSelfContainedHTML()"
+            >
+              🌐 Exportar como HTML Interativo
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab: Style Customizer -->
+        <div id="tab-style" class="tab-content">
+          <div style="display: flex; flex-direction: column; gap: 1.25rem">
+            <!-- Font Selection -->
+            <div class="style-section">
+              <label class="style-label">Fonte do Mapa</label>
+              <select
+                id="style-font"
+                class="search-box"
+                onchange="applyCustomStyles()"
+              >
+                <option value="Outfit">Outfit (Moderna/Redonda)</option>
+                <option value="Inter">Inter (Limpa/Técnica)</option>
+                <option value="Poppins">Poppins (Chamativa/Youtube)</option>
+                <option value="Roboto">Roboto (Clássica)</option>
+                <option value="Fira Code">Fira Code (Dev/Monospace)</option>
+                <option value="Playfair Display">
+                  Playfair Display (Serif/Elegante)
+                </option>
+              </select>
+            </div>
+
+            <!-- Background Section -->
+            <div class="style-section">
+              <label class="style-label">Plano de Fundo</label>
+              <select
+                id="style-bg-type"
+                class="search-box"
+                onchange="
+                  toggleBgInputs();
+                  applyCustomStyles();
+                "
+              >
+                <option value="solid">Cor Sólida</option>
+                <option value="gradient">Degradê</option>
+                <option value="image">Imagem (URL)</option>
+              </select>
+
+              <!-- Solid inputs -->
+              <div id="bg-solid-container" class="style-sub-container">
+                <input
+                  type="color"
+                  id="style-bg-solid"
+                  value="#0a0e17"
+                  onchange="applyCustomStyles()"
+                  class="style-color-picker"
+                />
+                <span>Escolher cor de fundo</span>
+              </div>
+
+              <!-- Gradient inputs -->
+              <div
+                id="bg-grad-container"
+                class="style-sub-container"
+                style="display: none; flex-direction: column; gap: 0.5rem"
+              >
+                <div
+                  style="
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: center;
+                    width: 100%;
+                  "
+                >
+                  <input
+                    type="color"
+                    id="style-bg-grad1"
+                    value="#0f172a"
+                    onchange="applyCustomStyles()"
+                    class="style-color-picker"
+                  />
+                  <input
+                    type="color"
+                    id="style-bg-grad2"
+                    value="#311042"
+                    onchange="applyCustomStyles()"
+                    class="style-color-picker"
+                  />
+                  <span>Cores do Gradiente</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.25rem;
+                    width: 100%;
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      font-size: 0.75rem;
+                      color: var(--text-secondary);
+                    "
+                  >
+                    <span>Ângulo</span>
+                    <span id="angle-value">135°</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="style-bg-angle"
+                    min="0"
+                    max="360"
+                    value="135"
+                    oninput="
+                      document.getElementById('angle-value').textContent =
+                        this.value + '°';
+                      applyCustomStyles();
+                    "
+                    style="width: 100%"
+                  />
+                </div>
+              </div>
+
+              <!-- Image inputs -->
+              <div
+                id="bg-img-container"
+                class="style-sub-container"
+                style="display: none"
+              >
+                <input
+                  type="text"
+                  id="style-bg-img"
+                  placeholder="Cole a URL da imagem aqui..."
+                  oninput="applyCustomStyles()"
+                  class="search-box"
+                />
+              </div>
+            </div>
+
+            <!-- Background Grid option -->
+            <div
+              class="style-section"
+              style="
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+              "
+            >
+              <label class="style-label" style="margin-bottom: 0"
+                >Fundo Quadriculado (Grid blueprint)</label
+              >
+              <input
+                type="checkbox"
+                id="style-grid-show"
+                checked
+                onchange="applyCustomStyles()"
+                style="cursor: pointer; width: 18px; height: 18px"
+              />
+            </div>
+            <div class="style-section" id="grid-color-section">
+              <div class="style-sub-container">
+                <input
+                  type="color"
+                  id="style-grid-color"
+                  value="#1e294b"
+                  onchange="applyCustomStyles()"
+                  class="style-color-picker"
+                />
+                <span>Cor do Grid</span>
+              </div>
+            </div>
+
+            <!-- Connection Lines Shape -->
+            <div class="style-section">
+              <label class="style-label"
+                >Formato das Conexões (Linhas entre Nós)</label
+              >
+              <select
+                id="style-link-shape"
+                class="search-box"
+                onchange="applyCustomStyles()"
+              >
+                <option value="curve">↩️ Curvas (Suaves/Padrão)</option>
+                <option value="straight">📏 Retas (Diretas/Limpo)</option>
+                <option value="orthogonal">📐 Ângulo Reto (Pastas/Grid)</option>
+              </select>
+            </div>
+
+            <!-- Dashed connection lines option (linhas guias) -->
+            <div
+              class="style-section"
+              style="
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+              "
+            >
+              <label class="style-label" style="margin-bottom: 0"
+                >Linhas Pontilhadas</label
+              >
+              <input
+                type="checkbox"
+                id="style-link-dashed"
+                onchange="applyCustomStyles()"
+                style="cursor: pointer; width: 18px; height: 18px"
+              />
+            </div>
+
+            <!-- Connection Color Selection -->
+            <div class="style-section">
+              <label class="style-label">Cores das Linhas</label>
+              <select
+                id="style-link-mode"
+                class="search-box"
+                onchange="
+                  toggleLinkInputs();
+                  applyCustomStyles();
+                "
+              >
+                <option value="rainbow">🌈 Colorido (Por Nível)</option>
+                <option value="single">🎨 Cor Única</option>
+              </select>
+              <div
+                id="link-single-container"
+                class="style-sub-container"
+                style="display: none"
+              >
+                <input
+                  type="color"
+                  id="style-link-color"
+                  value="#ffd700"
+                  onchange="applyCustomStyles()"
+                  class="style-color-picker"
+                />
+                <span>Escolher cor da linha</span>
+              </div>
+            </div>
+
+            <!-- Spacing and wrapping section -->
+            <div class="style-section">
+              <h4
+                style="
+                  font-size: 0.85rem;
+                  color: var(--accent);
+                  margin-bottom: 0.5rem;
+                  border-bottom: 1px solid var(--border-color);
+                  padding-bottom: 0.25rem;
+                "
+              >
+                Espaçamento e Quebra
+              </h4>
+
+              <div class="size-slider-row">
+                <span>Horizontal</span>
+                <input
+                  type="range"
+                  id="style-spacing-h"
+                  min="30"
+                  max="250"
+                  value="80"
+                  oninput="applyCustomStyles()"
+                />
+              </div>
+              <div class="size-slider-row">
+                <span>Vertical</span>
+                <input
+                  type="range"
+                  id="style-spacing-v"
+                  min="5"
+                  max="100"
+                  value="10"
+                  oninput="applyCustomStyles()"
+                />
+              </div>
+              <div class="size-slider-row">
+                <span>Largura Máxima</span>
+                <input
+                  type="range"
+                  id="style-node-maxwidth"
+                  min="100"
+                  max="600"
+                  value="260"
+                  oninput="applyCustomStyles()"
+                />
+              </div>
+            </div>
+
+            <!-- Font Sizes Sliders -->
+            <div class="style-section">
+              <h4
+                style="
+                  font-size: 0.85rem;
+                  color: var(--accent);
+                  margin-bottom: 0.5rem;
+                  border-bottom: 1px solid var(--border-color);
+                  padding-bottom: 0.25rem;
+                "
+              >
+                Tamanhos de Letra
+              </h4>
+
+              <div class="size-slider-row">
+                <span>Raiz (Nível 0)</span>
+                <input
+                  type="range"
+                  id="style-size-0"
+                  min="14"
+                  max="48"
+                  value="22"
+                  oninput="applyCustomStyles()"
+                />
+              </div>
+              <div class="size-slider-row">
+                <span>Ramos (Nível 1)</span>
+                <input
+                  type="range"
+                  id="style-size-1"
+                  min="12"
+                  max="36"
+                  value="17"
+                  oninput="applyCustomStyles()"
+                />
+              </div>
+              <div class="size-slider-row">
+                <span>Folhas (Nível 2+)</span>
+                <input
+                  type="range"
+                  id="style-size-2"
+                  min="10"
+                  max="28"
+                  value="14"
+                  oninput="applyCustomStyles()"
+                />
+              </div>
+            </div>
+
+            <!-- Node colors -->
+            <div class="style-section">
+              <h4
+                style="
+                  font-size: 0.85rem;
+                  color: var(--accent);
+                  margin-bottom: 0.5rem;
+                  border-bottom: 1px solid var(--border-color);
+                  padding-bottom: 0.25rem;
+                "
+              >
+                Cores por Nível (Nó e Texto)
+              </h4>
+
+              <div class="node-color-row">
+                <span>Nível 0 (Raiz)</span>
+                <div class="node-color-row-pickers">
+                  <input
+                    type="color"
+                    id="style-color-text-0"
+                    value="#ffd700"
+                    onchange="applyCustomStyles()"
+                    title="Cor do texto"
+                  />
+                  <input
+                    type="color"
+                    id="style-color-circle-0"
+                    value="#ffd700"
+                    onchange="applyCustomStyles()"
+                    title="Cor do nó"
+                  />
+                </div>
+              </div>
+
+              <div class="node-color-row">
+                <span>Nível 1 (Ramos)</span>
+                <div class="node-color-row-pickers">
+                  <input
+                    type="color"
+                    id="style-color-text-1"
+                    value="#f8fafc"
+                    onchange="applyCustomStyles()"
+                    title="Cor do texto"
+                  />
+                  <input
+                    type="color"
+                    id="style-color-circle-1"
+                    value="#ffd700"
+                    onchange="applyCustomStyles()"
+                    title="Cor do nó"
+                  />
+                </div>
+              </div>
+
+              <div class="node-color-row">
+                <span>Nível 2+ (Subramos)</span>
+                <div class="node-color-row-pickers">
+                  <input
+                    type="color"
+                    id="style-color-text-2"
+                    value="#94a3b8"
+                    onchange="applyCustomStyles()"
+                    title="Cor do texto"
+                  />
+                  <input
+                    type="color"
+                    id="style-color-circle-2"
+                    value="#94a3b8"
+                    onchange="applyCustomStyles()"
+                    title="Cor do nó"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CANVAS AREA -->
+      <main class="canvas-container">
+        <svg id="mindmap-svg"></svg>
+
+        <!-- Viewport Floating controls -->
+        <div class="viewport-controls">
+          <button
+            class="control-btn"
+            onclick="undo()"
+            title="Desfazer (Ctrl+Z)"
+          >
+            ↩️
+          </button>
+          <button class="control-btn" onclick="redo()" title="Refazer (Ctrl+Y)">
+            ↪️
+          </button>
+          <div
+            style="height: 1px; background: var(--border-color); margin: 2px 0"
+          ></div>
+          <button
+            class="control-btn"
+            onclick="expandAll()"
+            title="Expandir Todos os Nós"
+          >
+            📂
+          </button>
+          <button
+            class="control-btn"
+            onclick="collapseAllNodes()"
+            title="Recolher Todos os Nós"
+          >
+            📁
+          </button>
+          <button class="control-btn" onclick="zoomIn()" title="Aumentar Zoom">
+            +
+          </button>
+          <button class="control-btn" onclick="zoomOut()" title="Diminuir Zoom">
+            -
+          </button>
+          <button
+            class="control-btn"
+            onclick="fitView()"
+            title="Centralizar Mapa"
+          >
+            🎯
+          </button>
+          <button
+            class="control-btn"
+            onclick="toggleSidebar()"
+            title="Toggle Sidebar (Atalho: E)"
+          >
+            ☰
+          </button>
+        </div>
+
+        <!-- FLOATING CANVAS HOVER MENU -->
+        <div
+          id="canvas-node-hover-menu"
+          style="
+            position: absolute;
+            display: none;
+            gap: 0.25rem;
+            z-index: 500;
+            background: rgba(19, 27, 46, 0.95);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            pointer-events: auto;
+            align-items: center;
+          "
+        >
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+            "
+            id="hover-btn-up"
+            title="Mover para Cima"
+          >
+            ⬆️
+          </button>
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+            "
+            id="hover-btn-down"
+            title="Mover para Baixo"
+          >
+            ⬇️
+          </button>
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+            "
+            id="hover-btn-left"
+            title="Diminuir Recuo (Mover p/ Esquerda)"
+          >
+            ⬅️
+          </button>
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+            "
+            id="hover-btn-right"
+            title="Aumentar Recuo (Mover p/ Direita)"
+          >
+            ➡️
+          </button>
+          <div
+            style="
+              width: 1px;
+              height: 16px;
+              background: var(--border-color);
+              margin: 0 2px;
+            "
+          ></div>
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+            "
+            id="hover-btn-add"
+            title="Adicionar Filho"
+          >
+            +
+          </button>
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+            "
+            id="hover-btn-edit"
+            title="Editar Tópico"
+          >
+            ✏️
+          </button>
+          <button
+            class="btn"
+            style="
+              padding: 0.25rem 0.5rem;
+              font-size: 0.75rem;
+              border-radius: 4px;
+              height: auto;
+              background: #ef4444;
+              border-color: #ef4444;
+            "
+            id="hover-btn-delete"
+            title="Excluir"
+          >
+            🗑️
+          </button>
+        </div>
+
+        <!-- FLOATING RICH TEXT INLINE EDITOR (NOTION-STYLE TOOLBAR + EDITABLE INPUT) -->
+        <div
+          id="canvas-inline-editor-container"
+          style="
+            position: absolute;
+            display: none;
+            z-index: 600;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: auto;
+            min-width: 250px;
+          "
+        >
+          <!-- Rich Text Toolbar -->
+          <div id="notion-toolbar">
+            <button
+              onclick="formatActiveNode('bold')"
+              style="font-weight: bold"
+              title="Negrito (Ctrl+B)"
+            >
+              B
+            </button>
+            <button
+              onclick="formatActiveNode('italic')"
+              style="font-style: italic"
+              title="Itálico (Ctrl+I)"
+            >
+              I
+            </button>
+            <button onclick="formatActiveNode('link')" title="Link">
+              🔗 Link
+            </button>
+            <div
+              style="
+                width: 1px;
+                height: 18px;
+                background: var(--border-color);
+                margin: 0 4px;
+              "
+            ></div>
+            <button
+              onclick="handleMediaInsertion('image')"
+              title="Inserir Imagem (URL ou Local)"
+            >
+              🖼️ Imagem
+            </button>
+            <button
+              onclick="handleMediaInsertion('video')"
+              title="Inserir Vídeo (URL ou Local)"
+            >
+              🎥 Vídeo
+            </button>
+            <button
+              onclick="handleMediaInsertion('audio')"
+              title="Inserir Áudio (URL ou Local)"
+            >
+              🎵 Áudio
+            </button>
+            <button
+              onclick="removeInsertedMedia()"
+              style="color: #ef4444"
+              title="Apagar Mídia Deste Nó"
+            >
+              🗑️ Apagar Mídia
+            </button>
+            <div
+              style="
+                width: 1px;
+                height: 18px;
+                background: var(--border-color);
+                margin: 0 4px;
+              "
+            ></div>
+            <button
+              onclick="saveInlineEditing()"
+              style="
+                background: var(--accent);
+                color: var(--bg-primary);
+                font-weight: 700;
+              "
+              title="Salvar"
+            >
+              Salvar ✔️
+            </button>
+          </div>
+
+          <!-- Input contenteditable -->
+          <div
+            id="inline-editor-editable"
+            contenteditable="true"
+            style="
+              background: var(--bg-secondary);
+              border: 2px solid var(--accent);
+              color: var(--text-primary);
+              border-radius: 6px;
+              padding: 0.4rem 0.8rem;
+              min-width: 180px;
+              outline: none;
+              font-family: var(--font-family);
+              font-size: 14px;
+              box-shadow: 0 4px 20px var(--shadow-color);
+              text-align: left;
+              line-height: 1.4;
+              backdrop-filter: blur(8px);
+              white-space: pre-wrap;
+            "
+          ></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="toast">
+      <span id="toast-message">Copiado!</span>
+    </div>
+
+    <!-- SHORTCUT MODAL -->
+    <div
+      id="help-modal"
+      class="modal-overlay"
+      onclick="closeHelpOnOverlay(event)"
+    >
+      <div class="modal-content">
+        <div class="modal-title">
+          <span>Atalhos de Teclado</span>
+          <button class="modal-close" onclick="closeHelp()">&times;</button>
+        </div>
+
+        <div class="shortcut-row">
+          <span>Desfazer (no Canvas)</span>
+          <span class="shortcut-key">Ctrl + Z / Cmd + Z</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Refazer (no Canvas)</span>
+          <span class="shortcut-key">Ctrl + Y / Cmd + Shift + Z</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Entrar/Sair do Apresentador</span>
+          <span class="shortcut-key">P</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Sair do Apresentador</span>
+          <span class="shortcut-key">ESC</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Abrir/Fechar Menu Lateral</span>
+          <span class="shortcut-key">E</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Centralizar e Ajustar Zoom</span>
+          <span class="shortcut-key">0</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Alternar abas laterais</span>
+          <span class="shortcut-key">Tab</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Zoom In (Aumentar)</span>
+          <span class="shortcut-key">+</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Zoom Out (Diminuir)</span>
+          <span class="shortcut-key">-</span>
+        </div>
+
+        <div
+          style="
+            margin-top: 1.25rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: center;
+            line-height: 1.4;
+          "
+        >
+          <strong>Edição na Tela (Visual)</strong>: Passe o mouse em um nó e
+          clique em <code>✏️</code> ou dê um **duplo clique** para abrir a caixa
+          de texto. <br />Use a barra estilo **Notion** para Negrito, Itálico e
+          Links. <br />Pressione <code>Enter</code> para salvar e fechar a
+          edição. <br />Clique no botão <code>+</code> ao lado de qualquer nó
+          para criar instantaneamente uma nova ramificação filha.
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOATING DEBUG LOG OVERLAY -->
+    <div
+      id="debug-log"
+      style="
+        position: absolute;
+        bottom: 80px;
+        left: 20px;
+        background: rgba(10, 14, 23, 0.95);
+        color: #00ffcc;
+        border: 1px solid var(--border-color);
+        padding: 12px;
+        border-radius: 8px;
+        font-family: &quot;Fira Code&quot;, monospace;
+        font-size: 11px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 10000;
+        width: 340px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        display: none;
+        pointer-events: auto;
+      "
+    >
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border-color);
+          padding-bottom: 4px;
+          margin-bottom: 6px;
+          font-weight: bold;
+          color: var(--accent);
+        "
+      >
+        <span>Console de Depuração Visual</span>
+        <button
+          onclick="document.getElementById('debug-log').style.display = 'none'"
+          style="
+            background: none;
+            border: none;
+            color: #ff007f;
+            cursor: pointer;
+            font-weight: bold;
+          "
+        >
+          [Fechar]
+        </button>
+      </div>
+      <div
+        id="debug-log-content"
+        style="max-height: 120px; overflow-y: auto; margin-bottom: 6px"
+      ></div>
+      <button
+        onclick="document.getElementById('debug-log-content').innerHTML = ''"
+        style="
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          color: var(--text-primary);
+          font-size: 9px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          cursor: pointer;
+        "
+      >
+        Limpar Logs
+      </button>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+      let currentTheme = "dark";
+      let currentEditorMode = "md";
+      let maps = [];
+      let currentMapId = "";
+      let markmapInstance = null;
+      let debounceTimeout = null;
+      let currentExpandLevel = 1;
+
+      // O modelo de árvore unificado (Única Fonte da Verdade)
+      let currentTree = null;
+      let flatNodes = [];
+      let linkObserver = null;
+
+      // Estados da edição na tela
+      let activeHoverNodeId = null;
+      let isHoveringMenu = false;
+      let hoverMenuTimeout = null;
+      let isEditingInline = false;
+      let editingNodeId = null;
+
+      // Histórico de Desfazer/Refazer (Undo/Redo)
+      let undoStack = [];
+      let redoStack = [];
+
+      // Mapeamento e controle de cache de URLs do tipo Blob para mídias locais resolvidas na sessão
+      const activeBlobUrlMap = {};
+
+      // Banco de Mídia Local (IndexedDB)
+      let mediaDB = null;
+
+      // Presets de Temas
+      const themePresets = {
+        dark: {
+          font: "Outfit",
+          bgType: "solid",
+          bgSolid: "#0a0e17",
+          bgGrad1: "#0f172a",
+          bgGrad2: "#1e294b",
+          bgAngle: 135,
+          bgImg: "",
+          gridShow: true,
+          gridColor: "#1e294b",
+          linkShape: "curve",
+          linkDashed: false,
+          linkMode: "rainbow",
+          linkColor: "#ffd700",
+          size0: 22,
+          size1: 17,
+          size2: 14,
+          colorText0: "#ffd700",
+          colorCircle0: "#ffd700",
+          colorText1: "#f8fafc",
+          colorCircle1: "#ffd700",
+          colorText2: "#94a3b8",
+          colorCircle2: "#94a3b8",
+        },
+        light: {
+          font: "Outfit",
+          bgType: "solid",
+          bgSolid: "#faf8f6",
+          bgGrad1: "#faf8f6",
+          bgGrad2: "#f1ede9",
+          bgAngle: 135,
+          bgImg: "",
+          gridShow: true,
+          gridColor: "#f1ede9",
+          linkShape: "curve",
+          linkDashed: false,
+          linkMode: "rainbow",
+          linkColor: "#0f766e",
+          size0: 22,
+          size1: 17,
+          size2: 14,
+          colorText0: "#0f766e",
+          colorCircle0: "#0f766e",
+          colorText1: "#1e293b",
+          colorCircle1: "#0f766e",
+          colorText2: "#64748b",
+          colorCircle2: "#64748b",
+        },
+      };
+
+      // --- INITIALIZE INDEXEDDB ---
+      function initIndexedDB() {
+        const request = indexedDB.open("MindFlowMediaDB", 1);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains("media")) {
+            db.createObjectStore("media");
+          }
+        };
+        request.onsuccess = (e) => {
+          mediaDB = e.target.result;
+          if (maps.length > 0) {
+            loadMap(currentMapId || maps[0].id);
+          }
+        };
+        request.onerror = (e) => {
+          console.error("Erro ao inicializar IndexedDB para mídias:", e);
+          // Fallback: carrega o mapa mesmo sem IndexedDB disponível
+          if (maps.length > 0) {
+            loadMap(currentMapId || maps[0].id);
+          }
+        };
+        request.onblocked = () => {
+          console.warn(
+            "IndexedDB bloqueado (outra aba pode ter o DB aberto). Carregando mapa sem mídias locais.",
+          );
+          if (maps.length > 0) {
+            loadMap(currentMapId || maps[0].id);
+          }
+        };
+      }
+
+      function saveMediaToIndexedDB(id, fileBlob) {
+        return new Promise((resolve, reject) => {
+          if (!mediaDB) {
+            reject("Database não inicializado");
+            return;
+          }
+          const transaction = mediaDB.transaction(["media"], "readwrite");
+          const store = transaction.objectStore("media");
+          const req = store.put(fileBlob, id);
+          req.onsuccess = () => resolve(id);
+          req.onerror = (e) => reject(e.target.error);
+        });
+      }
+
+      function getMediaFromIndexedDB(id) {
+        return new Promise((resolve, reject) => {
+          if (!mediaDB) {
+            reject("Database não inicializado");
+            return;
+          }
+          const transaction = mediaDB.transaction(["media"], "readonly");
+          const store = transaction.objectStore("media");
+          const req = store.get(id);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = (e) => reject(e.target.error);
+        });
+      }
+
+      // --- VISUAL LOG FUNCTION ---
+      function logDebug(msg) {
+        console.log("[DEBUG]", msg);
+        const logContainer = document.getElementById("debug-log");
+        const logContent = document.getElementById("debug-log-content");
+        if (logContainer && logContent) {
+          logContainer.style.display = "block";
+          const timestamp = new Date().toLocaleTimeString();
+          logContent.innerHTML += `<div style="margin-bottom: 2px;"><span style="color:#94a3b8">[${timestamp}]</span> ${msg}</div>`;
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+      }
+
+      window.onerror = function (message, source, lineno, colno, error) {
+        logDebug(`GLOBAL ERROR: ${message} at ${source}:${lineno}`);
+        return false;
+      };
+
+      // --- LOCAL STORAGE PERSISTENCE ---
+
+      function saveStylesToLocalStorage() {
+        const styles = {
+          theme: document.getElementById("theme-selector").value,
+          font: document.getElementById("style-font").value,
+          bgType: document.getElementById("style-bg-type").value,
+          bgSolid: document.getElementById("style-bg-solid").value,
+          bgGrad1: document.getElementById("style-bg-grad1").value,
+          bgGrad2: document.getElementById("style-bg-grad2").value,
+          bgAngle: document.getElementById("style-bg-angle").value,
+          bgImg: document.getElementById("style-bg-img").value,
+          gridShow: document.getElementById("style-grid-show").checked,
+          gridColor: document.getElementById("style-grid-color").value,
+          linkShape: document.getElementById("style-link-shape").value,
+          linkDashed: document.getElementById("style-link-dashed").checked,
+          linkMode: document.getElementById("style-link-mode").value,
+          linkColor: document.getElementById("style-link-color").value,
+          spacingH: document.getElementById("style-spacing-h").value,
+          spacingV: document.getElementById("style-spacing-v").value,
+          nodeMaxWidth: document.getElementById("style-node-maxwidth").value,
+          size0: document.getElementById("style-size-0").value,
+          size1: document.getElementById("style-size-1").value,
+          size2: document.getElementById("style-size-2").value,
+          colorText0: document.getElementById("style-color-text-0").value,
+          colorCircle0: document.getElementById("style-color-circle-0").value,
+          colorText1: document.getElementById("style-color-text-1").value,
+          colorCircle1: document.getElementById("style-color-circle-1").value,
+          colorText2: document.getElementById("style-color-text-2").value,
+          colorCircle2: document.getElementById("style-color-circle-2").value,
+        };
+        localStorage.setItem("mindflow_styles", JSON.stringify(styles));
+      }
+
+      function loadStylesFromLocalStorage() {
+        try {
+          const stored = localStorage.getItem("mindflow_styles");
+          if (!stored) return;
+
+          const styles = JSON.parse(stored);
+
+          if (styles.theme) {
+            document.getElementById("theme-selector").value = styles.theme;
+            currentTheme = styles.theme;
+          }
+
+          if (styles.font)
+            document.getElementById("style-font").value = styles.font;
+          if (styles.bgType)
+            document.getElementById("style-bg-type").value = styles.bgType;
+          if (styles.bgSolid)
+            document.getElementById("style-bg-solid").value = styles.bgSolid;
+          if (styles.bgGrad1)
+            document.getElementById("style-bg-grad1").value = styles.bgGrad1;
+          if (styles.bgGrad2)
+            document.getElementById("style-bg-grad2").value = styles.bgGrad2;
+          if (styles.bgAngle)
+            document.getElementById("style-bg-angle").value = styles.bgAngle;
+          if (styles.bgImg)
+            document.getElementById("style-bg-img").value = styles.bgImg;
+
+          if (styles.gridShow !== undefined)
+            document.getElementById("style-grid-show").checked =
+              styles.gridShow;
+          if (styles.gridColor)
+            document.getElementById("style-grid-color").value =
+              styles.gridColor;
+          if (styles.linkShape)
+            document.getElementById("style-link-shape").value =
+              styles.linkShape;
+          if (styles.linkDashed !== undefined)
+            document.getElementById("style-link-dashed").checked =
+              styles.linkDashed;
+          if (styles.linkMode)
+            document.getElementById("style-link-mode").value = styles.linkMode;
+          if (styles.linkColor)
+            document.getElementById("style-link-color").value =
+              styles.linkColor;
+
+          if (styles.spacingH)
+            document.getElementById("style-spacing-h").value = styles.spacingH;
+          if (styles.spacingV)
+            document.getElementById("style-spacing-v").value = styles.spacingV;
+          if (styles.nodeMaxWidth)
+            document.getElementById("style-node-maxwidth").value =
+              styles.nodeMaxWidth;
+
+          if (styles.size0)
+            document.getElementById("style-size-0").value = styles.size0;
+          if (styles.size1)
+            document.getElementById("style-size-1").value = styles.size1;
+          if (styles.size2)
+            document.getElementById("style-size-2").value = styles.size2;
+
+          if (styles.colorText0)
+            document.getElementById("style-color-text-0").value =
+              styles.colorText0;
+          if (styles.colorCircle0)
+            document.getElementById("style-color-circle-0").value =
+              styles.colorCircle0;
+          if (styles.colorText1)
+            document.getElementById("style-color-text-1").value =
+              styles.colorText1;
+          if (styles.colorCircle1)
+            document.getElementById("style-color-circle-1").value =
+              styles.colorCircle1;
+          if (styles.colorText2)
+            document.getElementById("style-color-text-2").value =
+              styles.colorText2;
+          if (styles.colorCircle2)
+            document.getElementById("style-color-circle-2").value =
+              styles.colorCircle2;
+        } catch (err) {
+          console.error("Erro ao ler localStorage de estilos:", err);
+        }
+      }
+
+      function saveMapsToLocalStorage() {
+        localStorage.setItem("mindflow_maps_data", JSON.stringify(maps));
+      }
+
+      // --- GERENCIADOR DE HISTÓRICO (UNDO / REDO) ---
+
+      function saveState() {
+        const currentMarkdown =
+          document.getElementById("editor-textarea").value;
+
+        // Evita duplicar o mesmo estado consecutivo
+        if (
+          undoStack.length > 0 &&
+          undoStack[undoStack.length - 1] === currentMarkdown
+        ) {
+          return;
+        }
+
+        undoStack.push(currentMarkdown);
+
+        // Limita o histórico a 50 estados para otimizar memória
+        if (undoStack.length > 50) {
+          undoStack.shift();
+        }
+
+        // Limpa a pilha de refazer toda vez que um novo estado é gerado
+        redoStack = [];
+      }
+
+      function undo() {
+        if (undoStack.length <= 1) {
+          showToast("Nada para desfazer! ↩️");
+          return;
+        }
+
+        // Tira o estado atual e joga na pilha de refazer
+        const currentState = undoStack.pop();
+        redoStack.push(currentState);
+
+        // Recupera o estado anterior
+        const prevState = undoStack[undoStack.length - 1];
+        applyHistoryState(prevState);
+        showToast("Desfeito! ↩️");
+      }
+
+      function redo() {
+        if (redoStack.length === 0) {
+          showToast("Nada para refazer! ↪️");
+          return;
+        }
+
+        // Tira da pilha de refazer e coloca de volta na de desfazer
+        const nextState = redoStack.pop();
+        undoStack.push(nextState);
+
+        applyHistoryState(nextState);
+        showToast("Refeito! ↪️");
+      }
+
+      function applyHistoryState(markdown) {
+        document.getElementById("editor-textarea").value = markdown;
+        document.getElementById("char-counter").textContent =
+          `${markdown.length} caracteres`;
+
+        const currentMap = maps.find((m) => m.id === currentMapId);
+
+        currentTree = parseMarkdownToTree(markdown);
+        if (currentTree) {
+          document.getElementById("active-map-title").textContent =
+            currentTree.content;
+          if (currentMap) {
+            currentMap.content = markdown;
+            currentMap.title = currentTree.content;
+          }
+          const mapEl = document.querySelector(
+            `.map-item[data-id="${currentMapId}"] span`,
+          );
+          if (mapEl) mapEl.textContent = currentTree.content;
+        }
+
+        saveMapsToLocalStorage(); // Persiste estado restaurado
+
+        if (currentEditorMode === "visual") {
+          initVisualEditor();
+        }
+
+        renderMindmap(markdown, false);
+      }
+
+      // --- ENGENHARIA DO MODELO DE ÁRVORE ---
+
+      function parseMarkdownToTree(markdownText) {
+        try {
+          const { Transformer } = window.markmap;
+          const transformer = new Transformer();
+          const { root } = transformer.transform(markdownText);
+
+          let count = 0;
+          function walk(node, depth = 0) {
+            node.id = "node-" + ++count;
+            node.depth = depth;
+            if (node.children) {
+              node.children.forEach((child) => walk(child, depth + 1));
+            }
+          }
+          walk(root);
+          return root;
+        } catch (err) {
+          console.error("Erro ao converter Markdown em árvore:", err);
+          return null;
+        }
+      }
+
+      function treeToMarkdown(node, depth = 0) {
+        if (!node) return "";
+        let md = "";
+        const content = node.content || "";
+
+        if (depth === 0) {
+          md += `# ${content}\n`;
+        } else if (depth === 1) {
+          md += `\n## ${content}\n`;
+        } else {
+          const indent = " ".repeat((depth - 2) * 2);
+          md += `${indent}- ${content}\n`;
+        }
+
+        if (node.children) {
+          node.children.forEach((child) => {
+            md += treeToMarkdown(child, depth + 1);
+          });
+        }
+        return md;
+      }
+
+      function findNodeInTree(node, id) {
+        if (!node) return null;
+        if (node.id === id) return node;
+        if (node.children) {
+          for (let child of node.children) {
+            const found = findNodeInTree(child, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      function findParentNodeOfId(rootNode, id) {
+        if (!rootNode) return null;
+        if (rootNode.children) {
+          for (let child of rootNode.children) {
+            if (child.id === id) return rootNode;
+            const found = findParentNodeOfId(child, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      function syncTreeToMarkdown() {
+        if (!currentTree) return;
+        const markdown = treeToMarkdown(currentTree);
+
+        saveState(); // Salva estado anterior antes de sobrescrever o textarea
+
+        document.getElementById("editor-textarea").value = markdown;
+        document.getElementById("char-counter").textContent =
+          `${markdown.length} caracteres`;
+
+        const currentMap = maps.find((m) => m.id === currentMapId);
+        if (currentMap) {
+          currentMap.content = markdown;
+          currentMap.title = currentTree.content;
+          document.getElementById("active-map-title").textContent =
+            currentTree.content;
+          const mapEl = document.querySelector(
+            `.map-item[data-id="${currentMapId}"] span`,
+          );
+          if (mapEl) mapEl.textContent = currentTree.content;
+        }
+        saveMapsToLocalStorage(); // Persiste as alterações
+
+        renderMindmap(markdown, false);
+      }
+
+      function getFlatNodesFromTree(node, depth = 0, result = []) {
+        if (!node) return result;
+        result.push({
+          id: node.id,
+          text: node.content,
+          level: depth,
+        });
+        if (node.children) {
+          node.children.forEach((child) => {
+            getFlatNodesFromTree(child, depth + 1, result);
+          });
+        }
+        return result;
+      }
+
+      function getNodeId(nodeGroup) {
+        const d = d3.select(nodeGroup).datum();
+        if (!d) return null;
+
+        if (d.id) return d.id;
+        if (d.data && d.data.id) return d.data.id;
+
+        const content = d.content || (d.data && d.data.content);
+        if (content) {
+          const cleanContent = content.replace(/<[^>]*>/g, "").trim();
+          let foundNode = null;
+          function walk(n) {
+            if (!n) return;
+            // Normaliza o texto removendo tags markdown e HTML para correspondência precisa de nós textuais
+            const cleanNodeText = n.content
+              .replace(/\*\*|\*|__|_|\[.*?\]\(.*?\)/g, "")
+              .replace(/<[^>]*>/g, "")
+              .trim();
+            if (cleanNodeText === cleanContent) {
+              foundNode = n;
+              return;
+            }
+            if (n.children) n.children.forEach(walk);
+          }
+          walk(currentTree);
+          if (foundNode) return foundNode.id;
+        }
+
+        return null;
+      }
+
+      // --- RECURSOS DO VISUAL CANVAS EDITOR ---
+
+      function setupCanvasHoverMenu() {
+        const svg = document.getElementById("mindmap-svg");
+        const menu = document.getElementById("canvas-node-hover-menu");
+
+        svg.addEventListener("mouseover", (e) => {
+          if (isEditingInline) return;
+          if (document.body.classList.contains("presentation-mode")) {
+            menu.style.display = "none";
+            return;
+          }
+
+          const nodeGroup = e.target.closest(".markmap-node");
+          if (nodeGroup) {
+            clearTimeout(hoverMenuTimeout);
+
+            const id = getNodeId(nodeGroup);
+            if (!id) return;
+
+            activeHoverNodeId = id;
+
+            const bbox = nodeGroup.getBoundingClientRect();
+            const container = svg.parentElement;
+            const containerRect = container.getBoundingClientRect();
+
+            const left = bbox.right - containerRect.left + 8;
+            const top = bbox.top - containerRect.top + bbox.height / 2 - 15;
+
+            menu.style.left = `${left}px`;
+            menu.style.top = `${top}px`;
+            menu.style.display = "flex";
+          }
+        });
+
+        svg.addEventListener("mouseout", (e) => {
+          const nodeGroup = e.target.closest(".markmap-node");
+          if (nodeGroup) {
+            clearTimeout(hoverMenuTimeout);
+            hoverMenuTimeout = setTimeout(() => {
+              if (!isHoveringMenu) {
+                menu.style.display = "none";
+              }
+            }, 350);
+          }
+        });
+
+        menu.addEventListener("mouseenter", () => {
+          clearTimeout(hoverMenuTimeout);
+          isHoveringMenu = true;
+        });
+
+        menu.addEventListener("mouseleave", () => {
+          isHoveringMenu = false;
+          hoverMenuTimeout = setTimeout(() => {
+            menu.style.display = "none";
+          }, 200);
+        });
+
+        // Vincula os botões de movimentação e indentação
+        document.getElementById("hover-btn-up").onclick = () => {
+          if (activeHoverNodeId) {
+            saveState(); // Salva estado antes de alterar
+            moveNodeUpDown(activeHoverNodeId, -1);
+            repositionHoverMenu(activeHoverNodeId);
+          }
+        };
+
+        document.getElementById("hover-btn-down").onclick = () => {
+          if (activeHoverNodeId) {
+            saveState();
+            moveNodeUpDown(activeHoverNodeId, 1);
+            repositionHoverMenu(activeHoverNodeId);
+          }
+        };
+
+        document.getElementById("hover-btn-left").onclick = () => {
+          if (activeHoverNodeId) {
+            saveState();
+            indentNodeLeft(activeHoverNodeId);
+            repositionHoverMenu(activeHoverNodeId);
+          }
+        };
+
+        document.getElementById("hover-btn-right").onclick = () => {
+          if (activeHoverNodeId) {
+            saveState();
+            indentNodeRight(activeHoverNodeId);
+            repositionHoverMenu(activeHoverNodeId);
+          }
+        };
+
+        document.getElementById("hover-btn-add").onclick = () => {
+          if (activeHoverNodeId) {
+            saveState();
+            addCanvasNodeChild(activeHoverNodeId);
+            menu.style.display = "none";
+          }
+        };
+
+        document.getElementById("hover-btn-edit").onclick = () => {
+          if (activeHoverNodeId) {
+            startInlineEditingById(activeHoverNodeId);
+            menu.style.display = "none";
+          }
+        };
+
+        document.getElementById("hover-btn-delete").onclick = () => {
+          if (activeHoverNodeId) {
+            saveState();
+            deleteCanvasNodeById(activeHoverNodeId);
+            menu.style.display = "none";
+          }
+        };
+      }
+
+      // Reposiciona o menu lateral acompanhando o nó após o movimento e transição D3
+      function repositionHoverMenu(id) {
+        setTimeout(() => {
+          const svg = document.getElementById("mindmap-svg");
+          const menu = document.getElementById("canvas-node-hover-menu");
+
+          let nodeGroup = null;
+          d3.selectAll(".markmap-node").each(function () {
+            if (getNodeId(this) === id) {
+              nodeGroup = this;
+            }
+          });
+
+          if (nodeGroup) {
+            const bbox = nodeGroup.getBoundingClientRect();
+            const container = svg.parentElement;
+            const containerRect = container.getBoundingClientRect();
+
+            const left = bbox.right - containerRect.left + 8;
+            const top = bbox.top - containerRect.top + bbox.height / 2 - 15;
+
+            menu.style.left = `${left}px`;
+            menu.style.top = `${top}px`;
+            menu.style.display = "flex";
+          } else {
+            menu.style.display = "none";
+          }
+        }, 350);
+      }
+
+      function addCanvasNodeChild(id) {
+        const node = findNodeInTree(currentTree, id);
+        if (node) {
+          const newChild = {
+            id: "node-new-" + Date.now(),
+            content: "Novo Tópico",
+            children: [],
+          };
+          if (!node.children) node.children = [];
+          node.children.push(newChild);
+
+          syncTreeToMarkdown();
+          renderVisualEditorUI();
+
+          setTimeout(() => {
+            startInlineEditingById(newChild.id);
+          }, 150);
+        }
+      }
+
+      function deleteCanvasNodeById(id) {
+        const node = findNodeInTree(currentTree, id);
+        if (!node) return;
+
+        deleteTreeNode(id);
+        renderVisualEditorUI();
+        showToast("Tópico excluído!");
+      }
+
+      function deleteTreeNode(id) {
+        const parent = findParentNodeOfId(currentTree, id);
+        if (parent) {
+          parent.children = parent.children.filter((child) => child.id !== id);
+          syncTreeToMarkdown();
+        } else if (id === currentTree.id) {
+          currentTree.children = [];
+          syncTreeToMarkdown();
+        }
+      }
+
+      function startInlineEditingById(id) {
+        if (document.body.classList.contains("presentation-mode")) return;
+
+        const node = findNodeInTree(currentTree, id);
+        if (!node) return;
+
+        isEditingInline = true;
+        editingNodeId = id;
+
+        const svg = document.getElementById("mindmap-svg");
+        const container = svg.parentElement;
+        const containerRect = container.getBoundingClientRect();
+
+        let nodeGroup = null;
+        d3.selectAll(".markmap-node").each(function (d) {
+          const nodeData = d.data || d;
+          if (nodeData && nodeData.id === id) {
+            nodeGroup = this;
+          }
+        });
+
+        if (!nodeGroup) {
+          d3.selectAll(".markmap-node").each(function () {
+            const text = this.textContent.trim();
+            const cleanNodeText = node.content
+              .replace(/\*\*|\*|__|_|\[.*?\]\(.*?\)/g, "")
+              .replace(/<[^>]*>/g, "")
+              .trim();
+            if (text === cleanNodeText) {
+              nodeGroup = this;
+            }
+          });
+        }
+
+        if (!nodeGroup) return;
+
+        const bbox = nodeGroup.getBoundingClientRect();
+        const editorContainer = document.getElementById(
+          "canvas-inline-editor-container",
+        );
+        const editable = document.getElementById("inline-editor-editable");
+
+        editable.innerHTML = sanitizeHTML(markdownToHtmlForEdit(node.content));
+        resolveLocalMediaInElement(editable); // Resolve links de mídia local para exibição no editor
+        editable.style.minWidth = `${bbox.width + 15}px`;
+
+        const left = bbox.left - containerRect.left - 6;
+        const top = bbox.top - containerRect.top - 6;
+
+        editorContainer.style.left = `${left}px`;
+        editorContainer.style.top = `${top}px`;
+        editorContainer.style.display = "flex";
+
+        setTimeout(() => {
+          editable.focus();
+          const range = document.createRange();
+          range.selectNodeContents(editable);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }, 50);
+
+        editable.onkeydown = (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            saveInlineEditing();
+          } else if (e.key === "Escape") {
+            cancelInlineEditing();
+          }
+        };
+      }
+
+      function saveInlineEditing() {
+        if (!isEditingInline || !editingNodeId) return;
+
+        const editable = document.getElementById("inline-editor-editable");
+        const html = editable.innerHTML;
+        const markdown = htmlToMarkdown(html);
+
+        const node = findNodeInTree(currentTree, editingNodeId);
+        if (node) {
+          saveState(); // Salva estado antes de editar texto
+          node.content = markdown;
+          syncTreeToMarkdown();
+        }
+
+        closeInlineEditor();
+        renderVisualEditorUI();
+        showToast("Tópico atualizado!");
+      }
+
+      function cancelInlineEditing() {
+        closeInlineEditor();
+      }
+
+      function closeInlineEditor() {
+        isEditingInline = false;
+        editingNodeId = null;
+        document.getElementById(
+          "canvas-inline-editor-container",
+        ).style.display = "none";
+      }
+
+      function formatActiveNode(command) {
+        if (!isEditingInline) return;
+        const editable = document.getElementById("inline-editor-editable");
+        editable.focus();
+
+        if (command === "bold") {
+          document.execCommand("bold", false, null);
+        } else if (command === "italic") {
+          document.execCommand("italic", false, null);
+        } else if (command === "link") {
+          const url = prompt("Digite a URL do link:");
+          if (url) {
+            document.execCommand("createLink", false, url);
+          }
+        }
+      }
+
+      // Inserção inteligente de Mídias (Decide entre URL da web ou Upload Local)
+      function handleMediaInsertion(type) {
+        if (!isEditingInline) return;
+
+        const typeNames = { image: "IMAGEM", video: "VÍDEO", audio: "ÁUDIO" };
+        const accepts = {
+          image: "image/*",
+          video: "video/*",
+          audio: "audio/*",
+        };
+
+        const isLocal = confirm(
+          `Deseja carregar um arquivo de ${typeNames[type]} LOCAL do seu computador?\n\n(Clique em 'Cancelar' para inserir via URL da Web)`,
+        );
+
+        if (isLocal) {
+          // Trigger local file selector
+          let uploader = document.getElementById("media-local-uploader");
+          if (!uploader) {
+            uploader = document.createElement("input");
+            uploader.type = "file";
+            uploader.id = "media-local-uploader";
+            uploader.style.display = "none";
+            document.body.appendChild(uploader);
+          }
+
+          uploader.accept = accepts[type];
+          uploader.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showToast("Processando arquivo local... ⏳");
+
+            const mediaId =
+              "local-media-" +
+              Date.now() +
+              "-" +
+              Math.random().toString(36).substr(2, 9);
+
+            saveMediaToIndexedDB(mediaId, file)
+              .then(() => {
+                const blobUrl = URL.createObjectURL(file);
+                activeBlobUrlMap[mediaId] = blobUrl; // Registra no cache de sessões
+
+                let htmlToInsert = "";
+                if (type === "image") {
+                  htmlToInsert = `<br><img src="${blobUrl}" data-original-src="${mediaId}" alt="${escapeHtml(file.name)}">`;
+                } else if (type === "video") {
+                  htmlToInsert = `<br><video src="${blobUrl}" data-original-src="${mediaId}" controls></video>`;
+                } else if (type === "audio") {
+                  htmlToInsert = `<br><audio src="${blobUrl}" data-original-src="${mediaId}" controls></audio>`;
+                }
+
+                const editable = document.getElementById(
+                  "inline-editor-editable",
+                );
+                editable.focus();
+                document.execCommand("insertHTML", false, htmlToInsert);
+
+                uploader.value = "";
+                showToast("Mídia local inserida! ✔️");
+              })
+              .catch((err) => {
+                console.error("Erro ao salvar mídia local em IndexedDB:", err);
+                showToast("Erro ao carregar mídia local ❌");
+              });
+          };
+
+          uploader.click();
+        } else {
+          // Inserção via URL
+          const url = prompt(`Digite a URL da ${typeNames[type]}:`);
+          if (!url) return;
+
+          let htmlToInsert = "";
+          if (type === "image") {
+            htmlToInsert = `<br><img src="${url}" alt="Imagem">`;
+          } else if (type === "video") {
+            htmlToInsert = `<br><video src="${url}" controls></video>`;
+          } else if (type === "audio") {
+            htmlToInsert = `<br><audio src="${url}" controls></audio>`;
+          }
+
+          const editable = document.getElementById("inline-editor-editable");
+          editable.focus();
+          document.execCommand("insertHTML", false, htmlToInsert);
+        }
+      }
+
+      // Remove qualquer mídia (imagem, vídeo ou áudio) inserida neste nó
+      function removeInsertedMedia() {
+        if (!isEditingInline) return;
+        const editable = document.getElementById("inline-editor-editable");
+
+        const mediaElements = editable.querySelectorAll("img, video, audio");
+        if (mediaElements.length === 0) {
+          showToast("Nenhuma mídia encontrada neste tópico! ℹ️");
+          return;
+        }
+
+        saveState(); // Salva estado antes da modificação
+
+        mediaElements.forEach((el) => {
+          let prev = el.previousSibling;
+          if (prev && prev.nodeName === "BR") {
+            prev.remove();
+          }
+          el.remove();
+        });
+
+        showToast("Mídia removida! 🗑️");
+        editable.focus();
+      }
+
+      // Serializador DOM robusto de HTML para Markdown de nós
+      function htmlToMarkdown(html) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = sanitizeHTML(html);
+
+        function serialize(node) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent;
+          }
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const tag = node.tagName.toLowerCase();
+
+            if (tag === "b" || tag === "strong") {
+              return `**${serializeChildren(node)}**`;
+            }
+            if (tag === "i" || tag === "em") {
+              return `*${serializeChildren(node)}*`;
+            }
+            if (tag === "a") {
+              const href = node.getAttribute("href") || "";
+              return `[${serializeChildren(node)}](${href})`;
+            }
+            if (tag === "br") {
+              return "<br>";
+            }
+            if (tag === "div" || tag === "p") {
+              const content = serializeChildren(node);
+              return content ? `<br>${content}` : "";
+            }
+            if (tag === "img") {
+              const originalSrc = node.getAttribute("data-original-src");
+              const src = originalSrc || node.getAttribute("src") || "";
+              const alt = node.getAttribute("alt") || "Imagem";
+              return `<img src="${src}" alt="${alt}">`;
+            }
+            if (tag === "video") {
+              const originalSrc = node.getAttribute("data-original-src");
+              const src = originalSrc || node.getAttribute("src") || "";
+              return `<video src="${src}" controls></video>`;
+            }
+            if (tag === "audio") {
+              const originalSrc = node.getAttribute("data-original-src");
+              const src = originalSrc || node.getAttribute("src") || "";
+              return `<audio src="${src}" controls></audio>`;
+            }
+
+            return serializeChildren(node);
+          }
+          return "";
+        }
+
+        function serializeChildren(parent) {
+          let result = "";
+          parent.childNodes.forEach((child) => {
+            result += serialize(child);
+          });
+          return result;
+        }
+
+        let markdown = serializeChildren(tempDiv);
+        markdown = markdown.replace(/(<br>)+/g, " <br> ");
+        return markdown.trim();
+      }
+
+      // Sanitiza HTML removendo tags e atributos perigosos
+      function sanitizeHTML(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        // Remove scripts e elementos perigosos
+        const dangerousElements = doc.body.querySelectorAll(
+          "script, iframe, object, embed, form, style",
+        );
+        dangerousElements.forEach((el) => el.remove());
+
+        // Remove atributos de evento (on*) e javascript: URIs
+        const allElements = doc.body.querySelectorAll("*");
+        allElements.forEach((el) => {
+          Array.from(el.attributes).forEach((attr) => {
+            if (
+              attr.name.startsWith("on") ||
+              attr.value.trim().toLowerCase().startsWith("javascript:")
+            ) {
+              el.removeAttribute(attr.name);
+            }
+          });
+        });
+
+        return doc.body.innerHTML;
+      }
+
+      function markdownToHtmlForEdit(md) {
+        let text = md;
+        text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        text = text.replace(/\*(.*?)\*(?!\*)/g, "<em>$1</em>");
+        text = text.replace(
+          /\[(.*?)\]\((.*?)\)/g,
+          '<a href="$2" target="_blank">$1</a>',
+        );
+        // Deixa tags <img>, <video>, <audio> intactas
+        return text;
+      }
+
+      function triggerNodeCollapse(nodeGroup) {
+        const circle = nodeGroup.querySelector("circle");
+        if (circle) {
+          const clickEvent = new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+          });
+          circle.dispatchEvent(clickEvent);
+        }
+      }
+
+      function setupLabelClickHandling() {
+        const svg = document.getElementById("mindmap-svg");
+        let clickTimeout = null;
+
+        svg.addEventListener("click", (e) => {
+          const nodeGroup = e.target.closest(".markmap-node");
+          if (nodeGroup && e.target.tagName !== "circle") {
+            // Permite cliques em controles de áudio/vídeo e links sem disparar colapso de nó
+            if (
+              e.target.closest("audio") ||
+              e.target.closest("video") ||
+              e.target.closest("a")
+            ) {
+              return;
+            }
+            if (isEditingInline) return;
+
+            if (document.body.classList.contains("presentation-mode")) {
+              triggerNodeCollapse(nodeGroup);
+              return;
+            }
+
+            if (clickTimeout) {
+              clearTimeout(clickTimeout);
+              clickTimeout = null;
+
+              const id = getNodeId(nodeGroup);
+              if (id) {
+                startInlineEditingById(id);
+              }
+            } else {
+              clickTimeout = setTimeout(() => {
+                clickTimeout = null;
+                triggerNodeCollapse(nodeGroup);
+              }, 220);
+            }
+          }
+        });
+
+        svg.addEventListener("dblclick", (e) => {
+          if (document.body.classList.contains("presentation-mode")) return;
+          const nodeGroup = e.target.closest(".markmap-node");
+          if (nodeGroup) {
+            if (
+              e.target.closest("audio") ||
+              e.target.closest("video") ||
+              e.target.closest("a")
+            ) {
+              return;
+            }
+            e.preventDefault();
+            if (clickTimeout) {
+              clearTimeout(clickTimeout);
+              clickTimeout = null;
+            }
+            const id = getNodeId(nodeGroup);
+            if (id) {
+              startInlineEditingById(id);
+            }
+          }
+        });
+
+        svg.addEventListener("mousedown", (e) => {
+          if (isEditingInline) {
+            if (e.target.closest("#canvas-inline-editor-container")) return;
+            saveInlineEditing();
+          }
+        });
+
+        window.addEventListener(
+          "wheel",
+          () => {
+            if (isEditingInline) {
+              saveInlineEditing();
+            }
+          },
+          { passive: true },
+        );
+      }
+
+      function setupActivePathHighlighting() {
+        d3.selectAll(".markmap-node")
+          .on("mouseenter", function (event, d) {
+            if (isEditingInline) return;
+
+            const activeNodeIds = new Set();
+            const activeParentIds = new Set();
+            let curr = d;
+
+            while (curr) {
+              const id = (curr.data && curr.data.id) || curr.id;
+              if (id !== undefined) activeNodeIds.add(id);
+
+              if (curr.parent) {
+                const pid =
+                  (curr.parent.data && curr.parent.data.id) || curr.parent.id;
+                if (pid !== undefined) activeParentIds.add(pid);
+              }
+              curr = curr.parent;
+            }
+
+            d3.selectAll(".markmap-link").style("opacity", 0.15);
+
+            d3.selectAll(".markmap-link")
+              .filter((link) => {
+                if (!link.source || !link.target) return false;
+                const sourceId =
+                  (link.source.data && link.source.data.id) || link.source.id;
+                const targetId =
+                  (link.target.data && link.target.data.id) || link.target.id;
+                return (
+                  activeNodeIds.has(targetId) && activeParentIds.has(sourceId)
+                );
+              })
+              .style("opacity", 1)
+              .style("stroke-width", "4.5px")
+              .style("stroke", "var(--accent)")
+              .style("filter", "drop-shadow(0 0 5px var(--accent))");
+
+            d3.selectAll(".markmap-node").style("opacity", 0.35);
+
+            d3.selectAll(".markmap-node")
+              .filter((node) => {
+                const id = (node.data && node.data.id) || node.id;
+                return activeNodeIds.has(id);
+              })
+              .style("opacity", 1);
+          })
+          .on("mouseleave", function () {
+            d3.selectAll(".markmap-link")
+              .style("opacity", null)
+              .style("stroke-width", null)
+              .style("stroke", null)
+              .style("filter", null);
+
+            d3.selectAll(".markmap-node").style("opacity", null);
+          });
+      }
+
+      // --- REORDENAÇÃO DE NÓS (UP/DOWN/LEFT/RIGHT) VIA FLOTING MENU ---
+
+      function moveNodeUpDown(id, direction) {
+        const parent = findParentNodeOfId(currentTree, id);
+        if (!parent) return;
+
+        const index = parent.children.findIndex((child) => child.id === id);
+        if (index === -1) return;
+
+        const newIndex = index + direction;
+        if (newIndex >= 0 && newIndex < parent.children.length) {
+          // Troca a posição dos nós irmãos na árvore
+          const temp = parent.children[index];
+          parent.children[index] = parent.children[newIndex];
+          parent.children[newIndex] = temp;
+
+          syncTreeToMarkdown();
+          renderVisualEditorUI();
+          showToast(direction === -1 ? "Tópico subiu! ⬆" : "Tópico desceu! ⬇");
+        } else {
+          showToast("Limite atingido neste nível!");
+        }
+      }
+
+      function indentNodeLeft(id) {
+        const parent = findParentNodeOfId(currentTree, id);
+        if (!parent) return;
+
+        const grandparent = findParentNodeOfId(currentTree, parent.id);
+        if (!grandparent) {
+          showToast("Não é possível recuar mais para a esquerda!");
+          return;
+        }
+
+        const parentIndex = grandparent.children.findIndex(
+          (child) => child.id === parent.id,
+        );
+        if (parentIndex === -1) return;
+
+        const node = findNodeInTree(currentTree, id);
+
+        // Remove do pai atual
+        parent.children = parent.children.filter((child) => child.id !== id);
+
+        // Insere no avô, logo após o pai original
+        grandparent.children.splice(parentIndex + 1, 0, node);
+
+        syncTreeToMarkdown();
+        renderVisualEditorUI();
+        showToast("Nível reduzido (movido p/ esquerda)! ⬅");
+      }
+
+      function indentNodeRight(id) {
+        const parent = findParentNodeOfId(currentTree, id);
+        if (!parent) return;
+
+        const index = parent.children.findIndex((child) => child.id === id);
+        if (index === -1) return;
+
+        if (index > 0) {
+          const precedingSibling = parent.children[index - 1];
+          const node = findNodeInTree(currentTree, id);
+
+          // Remove do pai atual
+          parent.children = parent.children.filter((child) => child.id !== id);
+
+          // Adiciona como filho do irmão imediatamente superior
+          if (!precedingSibling.children) precedingSibling.children = [];
+          precedingSibling.children.push(node);
+
+          syncTreeToMarkdown();
+          renderVisualEditorUI();
+          showToast("Nível aumentado (movido p/ direita)! ➡️");
+        } else {
+          showToast("Não há tópico anterior no mesmo nível para recuar!");
+        }
+      }
+
+      function setupDragAndDrop() {
+        // Desativado e substituído pelos botões direcionais ⬆️ ⬇️ ⬅️ ➡️ no menu hover
+      }
+
+      // --- DELETAR MAPA MENTAL INTEIRO ---
+
+      function deleteMap(id) {
+        if (maps.length <= 1) {
+          showToast("Não é possível apagar o último mapa restante! ⚠️");
+          return;
+        }
+
+        const index = maps.findIndex((m) => m.id === id);
+        if (index === -1) return;
+
+        // Remove do array de mapas
+        maps.splice(index, 1);
+        saveMapsToLocalStorage(); // Salva no LocalStorage
+
+        // Se o mapa apagado era o atual, carrega outro mapa
+        if (currentMapId === id) {
+          const nextActiveIndex = Math.min(index, maps.length - 1);
+          loadMap(maps[nextActiveIndex].id);
+        } else {
+          renderMapsList();
+        }
+
+        showToast("Mapa mental apagado! 🗑️");
+      }
+
+      // Ouvintes para recalibrar o D3 assim que imagens/vídeos carregarem, evitando links sobrepostos
+      function setupMediaLoadListeners() {
+        const svg = document.getElementById("mindmap-svg");
+        const mediaElements = svg.querySelectorAll("img, video");
+        mediaElements.forEach((media) => {
+          if (media.tagName.toLowerCase() === "img" && !media.complete) {
+            media.onload = () => {
+              if (markmapInstance && currentTree) {
+                markmapInstance.setData(currentTree);
+              }
+            };
+          } else if (media.tagName.toLowerCase() === "video") {
+            media.onloadedmetadata = () => {
+              if (markmapInstance && currentTree) {
+                markmapInstance.setData(currentTree);
+              }
+            };
+          }
+        });
+      }
+
+      // Pré-resolve as mídias locais (local-media-...) no texto Markdown substituindo por Blob URLs válidos antes do D3 fazer as medições de nós do layout.
+      async function resolveMarkdownLocalMedia(markdownText) {
+        const regex = /src="(local-media-[^"]+)"/g;
+        let match;
+        let resolvedMarkdown = markdownText;
+
+        while ((match = regex.exec(markdownText)) !== null) {
+          const mediaId = match[1];
+          try {
+            const blob = await getMediaFromIndexedDB(mediaId);
+            if (blob) {
+              let blobUrl = activeBlobUrlMap[mediaId];
+              if (!blobUrl) {
+                blobUrl = URL.createObjectURL(blob);
+                activeBlobUrlMap[mediaId] = blobUrl;
+              }
+              resolvedMarkdown = resolvedMarkdown.replaceAll(
+                `src="${mediaId}"`,
+                `src="${blobUrl}" data-original-src="${mediaId}"`,
+              );
+            }
+          } catch (err) {
+            console.error("Erro ao pré-resolver mídia local no Markdown:", err);
+          }
+        }
+        return resolvedMarkdown;
+      }
+
+      function resolveLocalMediaInElement(parentEl) {
+        const mediaElements = parentEl.querySelectorAll("img, video, audio");
+        mediaElements.forEach(async (el) => {
+          const src = el.getAttribute("src");
+          if (src && src.startsWith("local-media-")) {
+            try {
+              const blob = await getMediaFromIndexedDB(src);
+              if (blob) {
+                // Usa o cache de Blob URLs da sessão para evitar memory leak
+                let blobUrl = activeBlobUrlMap[src];
+                if (!blobUrl) {
+                  blobUrl = URL.createObjectURL(blob);
+                  activeBlobUrlMap[src] = blobUrl;
+                }
+                el.setAttribute("data-original-src", src);
+                el.setAttribute("src", blobUrl);
+              }
+            } catch (err) {
+              console.error(
+                "Erro ao resolver mídia local no elemento do editor:",
+                err,
+              );
+            }
+          }
+        });
+      }
+
+      // --- CARREGAMENTO E SINCRONIZAÇÃO DE DADOS ---
+
+      function renderMapsList(filteredMaps = null) {
+        const listElement = document.getElementById("maps-list");
+        while (listElement.firstChild) {
+          listElement.removeChild(listElement.firstChild);
+        }
+
+        const mapsToRender = filteredMaps || maps;
+
+        mapsToRender.forEach((map) => {
+          const li = document.createElement("li");
+          li.className = `map-item ${map.id === currentMapId ? "active" : ""}`;
+          li.setAttribute("data-id", map.id);
+
+          // Evento de clique para carregar o mapa (evitando disparar se clicar no lixo)
+          li.onclick = (e) => {
+            if (e.target.closest(".delete-map-btn")) return;
+            loadMap(map.id);
+          };
+
+          const titleDiv = document.createElement("div");
+          titleDiv.style.cssText =
+            "display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
+
+          const titleSpan = document.createElement("span");
+          titleSpan.style.cssText =
+            "overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 0.9rem;";
+          titleSpan.textContent = map.title;
+
+          const metaSpan = document.createElement("span");
+          metaSpan.className = "map-item-meta";
+          metaSpan.textContent = map.filename || "local";
+
+          titleDiv.appendChild(titleSpan);
+          titleDiv.appendChild(metaSpan);
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-map-btn";
+          deleteBtn.title = "Apagar mapa";
+          deleteBtn.style.cssText =
+            "border: none; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; transition: all 0.2s;";
+          deleteBtn.textContent = "🗑️";
+
+          li.appendChild(titleDiv);
+          li.appendChild(deleteBtn);
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            deleteMap(map.id);
+          };
+
+          listElement.appendChild(li);
+        });
+      }
+
+      function filterMaps() {
+        const query = document.getElementById("map-search").value.toLowerCase();
+        const filtered = maps.filter(
+          (map) =>
+            map.title.toLowerCase().includes(query) ||
+            map.content.toLowerCase().includes(query),
+        );
+        renderMapsList(filtered);
+      }
+
+      function loadMap(id) {
+        const map = maps.find((m) => m.id === id);
+        if (!map) return;
+
+        currentMapId = id;
+        document.getElementById("active-map-title").textContent = map.title;
+        document.getElementById("editor-textarea").value = map.content;
+        document.getElementById("char-counter").textContent =
+          `${map.content.length} caracteres`;
+
+        // Inicializa a pilha de histórico com o estado original do mapa carregado
+        undoStack = [map.content];
+        redoStack = [];
+
+        if (currentEditorMode === "visual") {
+          initVisualEditor();
+        }
+
+        document.querySelectorAll(".map-item").forEach((el) => {
+          if (el.getAttribute("data-id") === id) {
+            el.classList.add("active");
+          } else {
+            el.classList.remove("active");
+          }
+        });
+
+        markmapInstance = null;
+        renderMindmap(map.content, true);
+      }
+
+      // Preserva o estado de colapso/expansão de cada nó ao renderizar novas versões da árvore
+      function preserveFoldStates(oldTree, newTree) {
+        if (!oldTree || !newTree) return;
+
+        const foldByContent = {};
+        const foldByPath = {};
+
+        function getFoldValue(node) {
+          if (!node) return undefined;
+          // Markmap armazena fold state em diferentes propriedades
+          if (node.state && node.state.fold !== undefined)
+            return node.state.fold;
+          if (node.payload && node.payload.fold !== undefined)
+            return node.payload.fold;
+          if (node.p && node.p.f !== undefined) return node.p.f;
+          if (node.payload && node.payload.f !== undefined)
+            return node.payload.f;
+          if (node.fold !== undefined) return node.fold;
+          return undefined;
+        }
+
+        function traverseOld(node, path = "root") {
+          if (!node) return;
+          const fVal = getFoldValue(node);
+          if (fVal !== undefined) {
+            foldByContent[node.content] = fVal;
+            foldByPath[path] = fVal;
+          }
+          if (node.children) {
+            node.children.forEach((child, idx) => {
+              traverseOld(child, path + "." + idx);
+            });
+          }
+        }
+        traverseOld(oldTree);
+
+        function setFoldValue(node, val) {
+          if (!node) return;
+          if (!node.payload) node.payload = {};
+          node.payload.fold = val;
+
+          if (!node.p) node.p = {};
+          node.p.f = val;
+
+          // Também define state.fold para compatibilidade com markmap
+          if (!node.state) node.state = {};
+          node.state.fold = val;
+        }
+
+        // Preenche recursivamente a árvore nova buscando correspondência de caminho e depois texto
+        function traverseNew(node, path = "root") {
+          if (!node) return;
+
+          let foldState = foldByPath[path];
+          if (foldState === undefined) {
+            foldState = foldByContent[node.content];
+          }
+
+          if (foldState !== undefined) {
+            setFoldValue(node, foldState);
+          }
+
+          if (node.children) {
+            node.children.forEach((child, idx) => {
+              traverseNew(child, path + "." + idx);
+            });
+          }
+        }
+        traverseNew(newTree);
+      }
+
+      async function renderMindmap(
+        markdownText,
+        isExplicitExpandCollapse = false,
+      ) {
+        try {
+          const svgElement = document.getElementById("mindmap-svg");
+
+          // Resolve os Blob URLs das mídias locais antes de parsear, assim o Markmap mede as caixas no tamanho real
+          const resolvedMarkdown =
+            await resolveMarkdownLocalMedia(markdownText);
+
+          const newTree = parseMarkdownToTree(resolvedMarkdown);
+          if (!newTree) return;
+
+          // Limpa recursivamente os estados de dobras de uma árvore
+          function clearFoldStates(node) {
+            if (!node) return;
+            if (node.payload) {
+              delete node.payload.fold;
+              delete node.payload.f;
+            }
+            if (node.p) {
+              delete node.p.f;
+            }
+            if (node.children) {
+              node.children.forEach(clearFoldStates);
+            }
+          }
+
+          // Preserva os estados de fold da árvore atual ANTES de ser substituída
+          // Isso é importante porque a árvore atual pode ter estados de fold que precisam ser preservados
+          // quando a estrutura é modificada (adição/remoção de nós, edição de texto, etc.)
+          const treeToPreserveFrom = currentTree;
+          if (treeToPreserveFrom && !isExplicitExpandCollapse) {
+            preserveFoldStates(treeToPreserveFrom, newTree);
+          } else if (isExplicitExpandCollapse) {
+            // Se for expansão/compactação explícita, limpamos os estados de dobras da nova árvore
+            // para que o nível global de expansão (initialExpandLevel) funcione
+            clearFoldStates(newTree);
+          }
+
+          currentTree = newTree;
+
+          const colorsByTheme = {
+            dark: ["#ffd700", "#00ffcc", "#ff6b6b", "#a8ff78", "#4facfe"],
+            light: ["#0f766e", "#b45309", "#047857", "#6d28d9", "#be185d"],
+          };
+
+          const themeColors = colorsByTheme[currentTheme] || colorsByTheme.dark;
+          const linkMode =
+            document.getElementById("style-link-mode")?.value || "rainbow";
+          const linkColor =
+            document.getElementById("style-link-color")?.value || "#ffd700";
+
+          const spacingH = parseInt(
+            document.getElementById("style-spacing-h")?.value || "80",
+          );
+          const spacingV = parseInt(
+            document.getElementById("style-spacing-v")?.value || "10",
+          );
+          const nodeMaxWidth = parseInt(
+            document.getElementById("style-node-maxwidth")?.value || "260",
+          );
+
+          const options = {
+            duration: 300,
+            spacingHorizontal: spacingH,
+            spacingVertical: spacingV,
+            maxWidth: nodeMaxWidth,
+            color: (node) => {
+              if (linkMode === "single") return linkColor;
+              const depth =
+                node.depth !== undefined
+                  ? node.depth
+                  : (node.data && node.data.depth) || 0;
+              return themeColors[depth % themeColors.length];
+            },
+          };
+
+          // Injeta initialExpandLevel somente se for uma expansão/compactação explícita
+          if (isExplicitExpandCollapse) {
+            options.initialExpandLevel = currentExpandLevel;
+          } else {
+            // Garante que não sobrescrevemos estados de dobras individuais
+            options.initialExpandLevel = undefined;
+          }
+
+          const { Markmap } = window.markmap;
+
+          if (markmapInstance) {
+            // Limpa qualquer initialExpandLevel armazenado na instância se NÃO for explícito
+            if (!isExplicitExpandCollapse && markmapInstance.options) {
+              delete markmapInstance.options.initialExpandLevel;
+            }
+            markmapInstance.setOptions(options);
+            markmapInstance.setData(currentTree);
+            applyLinkShapes();
+            setupActivePathHighlighting();
+            setupDragAndDrop();
+            setupMediaLoadListeners();
+          } else {
+            while (svgElement.firstChild) {
+              svgElement.removeChild(svgElement.firstChild);
+            }
+            markmapInstance = Markmap.create(svgElement, options, currentTree);
+
+            setupGridBackground();
+            setupLinkObserver();
+            applyLinkShapes();
+            setupActivePathHighlighting();
+            setupDragAndDrop();
+            setupMediaLoadListeners();
+
+            setTimeout(() => {
+              fitView();
+            }, 100);
+          }
+        } catch (err) {
+          console.error("Erro ao renderizar mindmap:", err);
+        }
+      }
+
+      function handleEditorInput() {
+        const markdown = document.getElementById("editor-textarea").value;
+        document.getElementById("char-counter").textContent =
+          `${markdown.length} caracteres`;
+
+        const currentMap = maps.find((m) => m.id === currentMapId);
+        if (currentMap) {
+          currentMap.content = markdown;
+        }
+        saveMapsToLocalStorage(); // Salva no LocalStorage
+
+        currentTree = parseMarkdownToTree(markdown);
+        if (currentTree) {
+          const firstLine = markdown.split("\n")[0];
+          if (firstLine && firstLine.startsWith("# ")) {
+            currentMap.title = firstLine.replace("# ", "").trim();
+            document.getElementById("active-map-title").textContent =
+              currentMap.title;
+            const mapEl = document.querySelector(
+              `.map-item[data-id="${currentMapId}"] span`,
+            );
+            if (mapEl) mapEl.textContent = currentMap.title;
+          }
+        }
+
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+          saveState(); // Salva estado das edições via texto com debounce
+          renderMindmap(markdown, false);
+        }, 150);
+      }
+
+      function switchTab(tabName) {
+        document.getElementById("tab-maps").classList.remove("active");
+        document.getElementById("tab-edit").classList.remove("active");
+        document.getElementById("tab-style").classList.remove("active");
+
+        document.getElementById("tab-maps-btn").classList.remove("active");
+        document.getElementById("tab-edit-btn").classList.remove("active");
+        document.getElementById("tab-style-btn").classList.remove("active");
+
+        document.getElementById(`tab-${tabName}`).classList.add("active");
+        document.getElementById(`tab-${tabName}-btn`).classList.add("active");
+
+        if (tabName === "edit" && currentEditorMode === "visual") {
+          initVisualEditor();
+        }
+      }
+
+      function setEditorMode(mode) {
+        currentEditorMode = mode;
+        document.getElementById("editor-mode-md").classList.remove("active");
+        document
+          .getElementById("editor-mode-visual")
+          .classList.remove("active");
+        document.getElementById(`editor-mode-${mode}`).classList.add("active");
+
+        if (mode === "md") {
+          document.getElementById("editor-md-area").style.display = "flex";
+          document.getElementById("editor-visual-area").style.display = "none";
+        } else {
+          document.getElementById("editor-md-area").style.display = "none";
+          document.getElementById("editor-visual-area").style.display = "flex";
+          initVisualEditor();
+        }
+      }
+
+      // --- LÓGICA DO EDITOR LATERAL (OUTLINER) ---
+
+      function initVisualEditor() {
+        flatNodes = getFlatNodesFromTree(currentTree);
+        renderVisualEditorUI();
+      }
+
+      function renderVisualEditorUI() {
+        const container = document.getElementById("visual-editor-container");
+        if (!container) return;
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+
+        if (flatNodes.length === 0) {
+          const emptyDiv = document.createElement("div");
+          emptyDiv.style.cssText =
+            "font-size:0.8rem; color:var(--text-secondary); text-align:center; padding:1rem;";
+          emptyDiv.textContent = "Nenhum nó.";
+          container.appendChild(emptyDiv);
+          return;
+        }
+
+        flatNodes.forEach((node, index) => {
+          const row = document.createElement("div");
+          row.className = "visual-node-row";
+          row.style.marginLeft = `${Math.min(node.level, 8) * 16}px`;
+
+          for (let i = 1; i <= node.level; i++) {
+            const indentLine = document.createElement("span");
+            indentLine.className = "visual-node-indent-line";
+            indentLine.style.left = `-${i * 16 - 8}px`;
+            row.appendChild(indentLine);
+          }
+
+          const input = document.createElement("input");
+          input.type = "text";
+          input.value = node.text || "";
+          input.className = "visual-node-input";
+          input.id = `visual-input-${index}`;
+          input.oninput = () => updateVisualNodeText(node.id, input.value);
+          input.onkeydown = (e) => handleVisualInputKeydown(e, index);
+          row.appendChild(input);
+
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "visual-node-actions";
+
+          const buttons = [
+            {
+              text: "+",
+              title: "Adicionar Subtópico",
+              action: () => addVisualNodeChild(index),
+            },
+            {
+              text: "<",
+              title: "Recuar à esquerda (Shift+Tab)",
+              action: () => changeVisualNodeLevel(index, -1),
+            },
+            {
+              text: ">",
+              title: "Recuar à direita (Tab)",
+              action: () => changeVisualNodeLevel(index, 1),
+            },
+            {
+              text: "↑",
+              title: "Mover para cima",
+              action: () => moveVisualNode(index, -1),
+            },
+            {
+              text: "↓",
+              title: "Mover para baixo",
+              action: () => moveVisualNode(index, 1),
+            },
+            {
+              text: "×",
+              title: "Excluir",
+              action: () => deleteVisualNode(index),
+              className: "delete-btn",
+            },
+          ];
+
+          buttons.forEach((btnData) => {
+            const btn = document.createElement("button");
+            btn.textContent = btnData.text;
+            btn.title = btnData.title;
+            btn.onclick = btnData.action;
+            if (btnData.className) btn.className = btnData.className;
+            actionsDiv.appendChild(btn);
+          });
+
+          row.appendChild(actionsDiv);
+          container.appendChild(row);
+        });
+      }
+
+      function updateVisualNodeText(id, val) {
+        const node = findNodeInTree(currentTree, id);
+        if (node) {
+          node.content = val;
+
+          // Mantém flatNodes sincronizado com a árvore para evitar perda de texto
+          const flatNode = flatNodes.find((n) => n.id === id);
+          if (flatNode) flatNode.text = val;
+
+          clearTimeout(debounceTimeout);
+          debounceTimeout = setTimeout(() => {
+            syncTreeToMarkdown();
+          }, 150);
+        }
+      }
+
+      function handleVisualInputKeydown(event, index) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const currentLevel = flatNodes[index].level;
+          const newNode = {
+            id: "node-new-" + Date.now(),
+            text: "",
+            level: currentLevel,
+          };
+          saveState(); // Salva estado antes de criar nova linha no outliner
+          flatNodes.splice(index + 1, 0, newNode);
+          syncVisualOutlinerToTree();
+
+          setTimeout(() => {
+            const input = document.getElementById(`visual-input-${index + 1}`);
+            if (input) input.focus();
+          }, 50);
+        } else if (event.key === "Tab") {
+          event.preventDefault();
+          const dir = event.shiftKey ? -1 : 1;
+          saveState(); // Salva antes de indentar
+          changeVisualNodeLevel(index, dir);
+        } else if (event.key === "Backspace" && flatNodes[index].text === "") {
+          event.preventDefault();
+          deleteVisualNode(index);
+
+          setTimeout(() => {
+            const input = document.getElementById(
+              `visual-input-${Math.max(0, index - 1)}`,
+            );
+            if (input) input.focus();
+          }, 50);
+        }
+      }
+
+      function changeVisualNodeLevel(index, dir) {
+        const node = flatNodes[index];
+        if (!node) return;
+
+        const minLevel = index === 0 ? 0 : 1;
+        node.level = Math.max(minLevel, node.level + dir);
+
+        syncVisualOutlinerToTree();
+
+        setTimeout(() => {
+          const input = document.getElementById(`visual-input-${index}`);
+          if (input) input.focus();
+        }, 50);
+      }
+
+      function moveVisualNode(index, dir) {
+        const newIndex = index + dir;
+        if (newIndex < 0 || newIndex >= flatNodes.length) return;
+
+        saveState(); // Salva antes de reordenar no outliner
+        const temp = flatNodes[index];
+        flatNodes[index] = flatNodes[newIndex];
+        flatNodes[newIndex] = temp;
+
+        syncVisualOutlinerToTree();
+
+        setTimeout(() => {
+          const input = document.getElementById(`visual-input-${newIndex}`);
+          if (input) input.focus();
+        }, 50);
+      }
+
+      function deleteVisualNode(index) {
+        saveState();
+        flatNodes.splice(index, 1);
+        syncVisualOutlinerToTree();
+      }
+
+      function syncVisualOutlinerToTree() {
+        const markdown = flatArrayToMd(flatNodes);
+        document.getElementById("editor-textarea").value = markdown;
+        document.getElementById("char-counter").textContent =
+          `${markdown.length} caracteres`;
+
+        const currentMap = maps.find((m) => m.id === currentMapId);
+
+        currentTree = parseMarkdownToTree(markdown);
+
+        // Re-sincroniza flatNodes com os novos IDs gerados pelo parser
+        flatNodes = getFlatNodesFromTree(currentTree);
+
+        if (currentTree) {
+          if (currentMap) {
+            currentMap.content = markdown;
+            currentMap.title = currentTree.content;
+          }
+          document.getElementById("active-map-title").textContent =
+            currentTree.content;
+          const mapEl = document.querySelector(
+            `.map-item[data-id="${currentMapId}"] span`,
+          );
+          if (mapEl) mapEl.textContent = currentTree.content;
+        }
+
+        saveMapsToLocalStorage(); // Persiste as alterações do editor visual
+
+        renderVisualEditorUI();
+
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+          renderMindmap(markdown, false);
+        }, 150);
+      }
+
+      // --- CONTROLES DE ESTILO DINÂMICO ---
+
+      function toggleBgInputs() {
+        const type = document.getElementById("style-bg-type").value;
+        document.getElementById("bg-solid-container").style.display =
+          type === "solid" ? "flex" : "none";
+        document.getElementById("bg-grad-container").style.display =
+          type === "gradient" ? "flex" : "none";
+        document.getElementById("bg-img-container").style.display =
+          type === "image" ? "flex" : "none";
+      }
+
+      function toggleLinkInputs() {
+        const mode = document.getElementById("style-link-mode").value;
+        document.getElementById("link-single-container").style.display =
+          mode === "single" ? "flex" : "none";
+      }
+
+      function applyCustomStyles() {
+        let styleEl = document.getElementById("dynamic-styles");
+        if (!styleEl) {
+          styleEl = document.createElement("style");
+          styleEl.id = "dynamic-styles";
+          document.head.appendChild(styleEl);
+        }
+
+        if (currentTheme === "light") {
+          document.body.style.setProperty("--bg-secondary", "#ffffff");
+          document.body.style.setProperty("--bg-tertiary", "#f1ede9");
+          document.body.style.setProperty("--text-primary", "#0f172a");
+          document.body.style.setProperty("--text-secondary", "#475569");
+          document.body.style.setProperty(
+            "--border-color",
+            "rgba(0, 0, 0, 0.08)",
+          );
+          document.body.style.setProperty(
+            "--shadow-color",
+            "rgba(0, 0, 0, 0.08)",
+          );
+          document.body.style.setProperty("--accent", "#0f766e");
+          document.body.style.setProperty("--accent-rgb", "15, 118, 110");
+        } else {
+          document.body.style.setProperty("--bg-secondary", "#131b2e");
+          document.body.style.setProperty("--bg-tertiary", "#1e294b");
+          document.body.style.setProperty("--text-primary", "#f8fafc");
+          document.body.style.setProperty("--text-secondary", "#94a3b8");
+          document.body.style.setProperty(
+            "--border-color",
+            "rgba(255, 255, 255, 0.08)",
+          );
+          document.body.style.setProperty(
+            "--shadow-color",
+            "rgba(0, 0, 0, 0.5)",
+          );
+          document.body.style.setProperty("--accent", "#ffd700");
+          document.body.style.setProperty("--accent-rgb", "255, 215, 0");
+        }
+
+        const font = document.getElementById("style-font").value;
+        const bgType = document.getElementById("style-bg-type").value;
+        const solidColor = document.getElementById("style-bg-solid").value;
+        const gradColor1 = document.getElementById("style-bg-grad1").value;
+        const gradColor2 = document.getElementById("style-bg-grad2").value;
+        const gradAngle = document.getElementById("style-bg-angle").value;
+        const bgImgUrl = document.getElementById("style-bg-img").value;
+
+        const size0 = document.getElementById("style-size-0").value;
+        const size1 = document.getElementById("style-size-1").value;
+        const size2 = document.getElementById("style-size-2").value;
+
+        const colorText0 = document.getElementById("style-color-text-0").value;
+        const colorCircle0 = document.getElementById(
+          "style-color-circle-0",
+        ).value;
+        const colorText1 = document.getElementById("style-color-text-1").value;
+        const colorCircle1 = document.getElementById(
+          "style-color-circle-1",
+        ).value;
+        const colorText2 = document.getElementById("style-color-text-2").value;
+        const colorCircle2 = document.getElementById(
+          "style-color-circle-2",
+        ).value;
+
+        const gridShow = document.getElementById("style-grid-show").checked;
+        const gridColor = document.getElementById("style-grid-color").value;
+        const linkColor = document.getElementById("style-link-color").value;
+        const linkDashed = document.getElementById("style-link-dashed").checked;
+
+        let backgroundValue = "";
+        if (bgType === "solid") {
+          backgroundValue = solidColor;
+        } else if (bgType === "gradient") {
+          backgroundValue = `linear-gradient(${gradAngle}deg, ${gradColor1}, ${gradColor2})`;
+        } else if (bgType === "image") {
+          backgroundValue = `url('${bgImgUrl}') no-repeat center center / cover`;
+        }
+
+        document.body.style.setProperty("--bg-primary", backgroundValue);
+        document.body.style.setProperty(
+          "--font-family",
+          `'${font}', sans-serif`,
+        );
+        document.body.style.setProperty(
+          "--grid-color",
+          gridShow ? gridColor : "transparent",
+        );
+
+        let cssRules = `
+        .markmap-node-depth-0 text { font-size: ${size0}px !important; fill: ${colorText0} !important; }
+        .markmap-node-depth-1 text { font-size: ${size1}px !important; fill: ${colorText1} !important; }
+        .markmap-node-depth-2 text { font-size: ${size2}px !important; fill: ${colorText2} !important; }
+        
+        .markmap-node-depth-0 foreignObject div, .markmap-node-depth-0 foreignObject * { font-size: ${size0}px !important; color: ${colorText0} !important; }
+        .markmap-node-depth-1 foreignObject div, .markmap-node-depth-1 foreignObject * { font-size: ${size1}px !important; color: ${colorText1} !important; }
+        .markmap-node-depth-2 foreignObject div, .markmap-node-depth-2 foreignObject * { font-size: ${size2}px !important; color: ${colorText2} !important; }
+        
+        .markmap-node-depth-0 circle { fill: ${colorCircle0} !important; stroke: ${colorCircle0} !important; }
+        .markmap-node-depth-1 circle { fill: ${colorCircle1} !important; stroke: ${colorCircle1} !important; }
+        .markmap-node-depth-2 circle { fill: ${colorCircle2} !important; stroke: ${colorCircle2} !important; }
+      `;
+
+        if (linkDashed) {
+          cssRules += `.markmap-link { stroke-dasharray: 5 5 !important; }`;
+        } else {
+          cssRules += `.markmap-link { stroke-dasharray: none !important; }`;
+        }
+
+        // Sanitiza as regras CSS para evitar injeção
+        const sanitizedCss = cssRules
+          .replace(/expression\s*\(/gi, "")
+          .replace(/javascript\s*:/gi, "");
+        styleEl.textContent = sanitizedCss;
+        document.getElementById("grid-color-section").style.display = gridShow
+          ? "block"
+          : "none";
+
+        setupLinkObserver();
+
+        const markdown = document.getElementById("editor-textarea").value;
+        renderMindmap(markdown, false);
+
+        saveStylesToLocalStorage();
+      }
+
+      function setupLinkObserver() {
+        if (linkObserver) linkObserver.disconnect();
+
+        const svg = document.getElementById("mindmap-svg");
+        const shape =
+          document.getElementById("style-link-shape")?.value || "curve";
+        if (shape === "curve") return;
+
+        linkObserver = new MutationObserver(() => {
+          linkObserver.disconnect();
+          applyLinkShapes();
+          linkObserver.observe(svg, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["d"],
+          });
+        });
+
+        linkObserver.observe(svg, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["d"],
+        });
+      }
+
+      function applyLinkShapes() {
+        const mode =
+          document.getElementById("style-link-shape")?.value || "curve";
+        if (mode === "curve") return;
+
+        d3.selectAll(".markmap-link").each(function (d) {
+          if (!d || !d.source || !d.target) return;
+
+          const sy = d.source.y;
+          const sx = d.source.x;
+          const ty = d.target.y;
+          const tx = d.target.x;
+
+          if (
+            sy === undefined ||
+            sx === undefined ||
+            ty === undefined ||
+            tx === undefined
+          )
+            return;
+
+          let pathData = "";
+          if (mode === "straight") {
+            pathData = `M ${sy} ${sx} L ${ty} ${tx}`;
+          } else if (mode === "orthogonal") {
+            const midY = (sy + ty) / 2;
+            pathData = `M ${sy} ${sx} L ${midY} ${sx} L ${midY} ${tx} L ${ty} ${tx}`;
+          }
+
+          const currentD = d3.select(this).attr("d");
+          if (currentD !== pathData) {
+            d3.select(this).attr("d", pathData);
+          }
+        });
+      }
+
+      function setupGridBackground() {
+        const svg = d3.select("#mindmap-svg");
+        const container = svg.select("g");
+
+        if (container.node()) {
+          let defs = svg.select("defs");
+          if (defs.empty()) {
+            defs = svg.append("defs");
+          }
+
+          defs.html(`
+          <pattern id="grid-pattern" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="var(--grid-color)" stroke-width="1"/>
+            <circle cx="60" cy="60" r="1.5" fill="var(--grid-color)" opacity="0.3"/>
+          </pattern>
+        `);
+
+          let gridRect = container.select(".grid-background");
+          if (gridRect.empty()) {
+            container
+              .insert("rect", ":first-child")
+              .attr("width", "100000")
+              .attr("height", "100000")
+              .attr("x", "-50000")
+              .attr("y", "-50000")
+              .attr("fill", "url(#grid-pattern)")
+              .attr("class", "grid-background")
+              .style("pointer-events", "none");
+          }
+        }
+      }
+
+      // --- CONTROLES DE EXPANSÃO / COMPACTAÇÃO GERAL ---
+
+      function expandAll() {
+        currentExpandLevel = 99;
+        const markdown = document.getElementById("editor-textarea").value;
+        renderMindmap(markdown, true);
+        showToast("Todos os nós expandidos! 📂");
+      }
+
+      function collapseAllNodes() {
+        currentExpandLevel = 1;
+        const markdown = document.getElementById("editor-textarea").value;
+        renderMindmap(markdown, true);
+        showToast("Todos os nós recolhidos! 📁");
+      }
+
+      function createNewMap() {
+        saveState(); // Salva estado antes de criar novo
+        const newId = `mapa-novo-${Date.now()}`;
+        const newMap = {
+          id: newId,
+          title: "Novo Mapa Mental",
+          filename: "local",
+          content:
+            "# Novo Mapa Mental\n\n## 📝 Escreva Aqui\n- Use recuos para sub-tópicos\n- Foco em simplicidade",
+        };
+
+        maps.unshift(newMap);
+        saveMapsToLocalStorage(); // Salva novo mapa no LocalStorage
+        renderMapsList();
+        switchTab("edit");
+        loadMap(newId);
+        showToast("Novo mapa criado!");
+      }
+
+      function toggleSidebar() {
+        const sidebar = document.getElementById("app-sidebar");
+        const isHidden =
+          sidebar.style.transform === "translateX(-100%)" ||
+          sidebar.style.marginLeft === "-400px";
+
+        if (isHidden) {
+          sidebar.style.transform = "translateX(0)";
+          sidebar.style.marginLeft = "0";
+        } else {
+          sidebar.style.transform = "translateX(-100%)";
+          sidebar.style.marginLeft = "-400px";
+        }
+      }
+
+      function togglePresentationMode() {
+        closeInlineEditor();
+        document.body.classList.toggle("presentation-mode");
+        setTimeout(() => {
+          fitView();
+        }, 400);
+      }
+
+      function zoomIn() {
+        if (markmapInstance) {
+          markmapInstance.rescale(1.2);
+        }
+      }
+
+      function zoomOut() {
+        if (markmapInstance) {
+          markmapInstance.rescale(0.85);
+        }
+      }
+
+      function fitView() {
+        if (markmapInstance) {
+          markmapInstance.fit();
+        }
+      }
+
+      function copyMarkdownToClipboard() {
+        const text = document.getElementById("editor-textarea").value;
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            showToast("Markdown copiado! 📋");
+          })
+          .catch((err) => {
+            console.error("Falha ao copiar:", err);
+          });
+      }
+
+      function downloadMarkdown() {
+        const text = document.getElementById("editor-textarea").value;
+        const title =
+          maps.find((m) => m.id === currentMapId)?.title || "mapa-mental";
+        const cleanTitle = title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+
+        const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${cleanTitle}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("Download do Markdown iniciado! 📥");
+      }
+
+      // Exporta o HTML do mapa mental, convertendo de forma assíncrona referências de mídia local em base64 Data URLs autossuficientes
+      async function downloadSelfContainedHTML() {
+        const markdown = document.getElementById("editor-textarea").value;
+        const title =
+          maps.find((m) => m.id === currentMapId)?.title || "Mapa Mental";
+        const cleanTitle = title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+
+        showToast("Compilando arquivos de mídias locais... ⏳");
+
+        // Varre o Markdown em busca de referências 'local-media-...'
+        const regex = /src="(local-media-[^"]+)"/g;
+        let match;
+        const mediaMap = {};
+
+        while ((match = regex.exec(markdown)) !== null) {
+          const mediaId = match[1];
+          if (!mediaMap[mediaId]) {
+            try {
+              const blob = await getMediaFromIndexedDB(mediaId);
+              if (blob) {
+                const base64 = await new Promise((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result);
+                  reader.readAsDataURL(blob);
+                });
+                mediaMap[mediaId] = base64;
+              }
+            } catch (err) {
+              console.error(
+                "Erro ao converter mídia local para exportação:",
+                err,
+              );
+            }
+          }
+        }
+
+        // Substitui as referências pelos dados em Base64 Data URL no HTML exportado
+        let exportedMarkdown = markdown;
+        for (const [mediaId, base64] of Object.entries(mediaMap)) {
+          exportedMarkdown = exportedMarkdown.replaceAll(
+            `src="${mediaId}"`,
+            `src="${base64}"`,
+          );
+        }
+
+        const htmlContent = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; background-color: #0a0e17; height: 100vh; overflow: hidden; }
+    #mindmap { width: 100vw; height: 100vh; }
+    img, video, audio { max-width: 100%; border-radius: 6px; margin-top: 6px; display: block; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    img { max-height: 120px; object-fit: cover; transition: max-height 0.2s ease; cursor: pointer; }
+    img:hover { max-height: 300px; }
+    video { max-height: 140px; background: #000; }
+    audio { width: 220px; height: 36px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.16.0"><\/script>
+</head>
+<body>
+  <svg id="mindmap"></svg>
+  <script>
+    const markdown = \`${exportedMarkdown.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`;
+    document.addEventListener("DOMContentLoaded", () => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/markmap-lib@0.16.0";
+      script.onload = () => {
+        const { Transformer } = window.markmap;
+        const transformer = new Transformer();
+        const { root } = transformer.transform(markdown);
+        const mm = window.markmap.Markmap.create('#mindmap', {
+          duration: 300,
+          color: (node) => {
+            const colors = ['#ffd700', '#00ffcc', '#ff6b6b', '#a8ff78', '#4facfe'];
+            return colors[node.depth % colors.length];
+          }
+        }, root);
+        
+        // Recalcula o D3 assim que mídias carregarem
+        document.querySelectorAll('img, video').forEach(media => {
+          media.onload = () => mm.setData(root);
+          media.onloadedmetadata = () => mm.setData(root);
+        });
+      };
+      document.head.appendChild(script);
+    });
+  <\/script>
+</body>
+</html>`;
+
+        const blob = new Blob([htmlContent], {
+          type: "text/html;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${cleanTitle}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("Exportado como HTML Interativo com Mídias! 🌐");
+      }
+
+      function openHelp() {
+        document.getElementById("help-modal").classList.add("open");
+      }
+
+      function closeHelp() {
+        document.getElementById("help-modal").classList.remove("open");
+      }
+
+      function closeHelpOnOverlay(event) {
+        if (event.target === document.getElementById("help-modal")) {
+          closeHelp();
+        }
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        document.getElementById("toast-message").textContent = message;
+        toast.classList.add("show");
+        setTimeout(() => {
+          toast.classList.remove("show");
+        }, 3000);
+      }
+
+      function handleGlobalKeydowns(e) {
+        const activeEl = document.activeElement;
+        const isEditingText =
+          activeEl &&
+          (activeEl.tagName === "TEXTAREA" ||
+            activeEl.tagName === "INPUT" ||
+            activeEl.getAttribute("contenteditable") === "true");
+
+        const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+        const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+        if (cmdOrCtrl && (e.key === "z" || e.key === "Z")) {
+          if (!isEditingText) {
+            e.preventDefault();
+            if (e.shiftKey) redo();
+            else undo();
+            return;
+          }
+        }
+
+        if (cmdOrCtrl && (e.key === "y" || e.key === "Y")) {
+          if (!isEditingText) {
+            e.preventDefault();
+            redo();
+            return;
+          }
+        }
+
+        if (isEditingText) {
+          if (e.key === "Escape") {
+            activeEl.blur();
+          }
+          return;
+        }
+
+        if (e.key === "p" || e.key === "P") {
+          e.preventDefault();
+          togglePresentationMode();
+        } else if (
+          e.key === "Escape" &&
+          document.body.classList.contains("presentation-mode")
+        ) {
+          togglePresentationMode();
+        } else if (e.key === "e" || e.key === "E") {
+          e.preventDefault();
+          toggleSidebar();
+        } else if (e.key === "0") {
+          e.preventDefault();
+          fitView();
+        } else if (e.key === "+") {
+          e.preventDefault();
+          zoomIn();
+        } else if (e.key === "-") {
+          e.preventDefault();
+          zoomOut();
+        } else if (e.key === "Tab") {
+          e.preventDefault();
+          const isMapsActive = document
+            .getElementById("tab-maps")
+            .classList.contains("active");
+          const isEditActive = document
+            .getElementById("tab-edit")
+            .classList.contains("active");
+          if (isMapsActive) switchTab("edit");
+          else if (isEditActive) switchTab("style");
+          else switchTab("maps");
+        }
+      }
+
+      function flatArrayToMd(arr) {
+        let md = "";
+        arr.forEach((node, index) => {
+          const text = node.text || "";
+          if (node.level === 0) {
+            md += `# ${text}\n`;
+          } else if (node.level === 1) {
+            md += `\n## ${text}\n`;
+          } else {
+            const indent = " ".repeat((node.level - 2) * 2);
+            md += `${indent}- ${text}\n`;
+          }
+        });
+        return md;
+      }
+
+      function escapeHtml(unsafe) {
+        const AMP = String.fromCharCode(38) + "amp;";
+        const LT = String.fromCharCode(38) + "lt;";
+        const GT = String.fromCharCode(38) + "gt;";
+        const QUOT = String.fromCharCode(38) + "quot;";
+        const APOS = String.fromCharCode(38) + "#039;";
+        return unsafe
+          .replace(/&/g, AMP)
+          .replace(/</g, LT)
+          .replace(/>/g, GT)
+          .replace(/"/g, QUOT)
+          .replace(/'/g, APOS);
+      }
+
+      function loadThemePreset(themeName) {
+        currentTheme = themeName;
+        const preset = themePresets[themeName];
+        if (preset) {
+          document.getElementById("style-font").value = preset.font;
+          document.getElementById("style-bg-type").value = preset.bgType;
+          document.getElementById("style-bg-solid").value = preset.bgSolid;
+          document.getElementById("style-bg-grad1").value = preset.bgGrad1;
+          document.getElementById("style-bg-grad2").value = preset.bgGrad2;
+          document.getElementById("style-bg-angle").value = preset.bgAngle;
+          document.getElementById("style-bg-img").value = preset.bgImg;
+          document.getElementById("style-grid-show").checked = preset.gridShow;
+          document.getElementById("style-grid-color").value = preset.gridColor;
+          document.getElementById("style-link-shape").value = preset.linkShape;
+          document.getElementById("style-link-dashed").checked =
+            preset.linkDashed;
+          document.getElementById("style-link-mode").value = preset.linkMode;
+          document.getElementById("style-link-color").value = preset.linkColor;
+
+          document.getElementById("style-size-0").value = preset.size0;
+          document.getElementById("style-size-1").value = preset.size1;
+          document.getElementById("style-size-2").value = preset.size2;
+
+          document.getElementById("style-color-text-0").value =
+            preset.colorText0;
+          document.getElementById("style-color-circle-0").value =
+            preset.colorCircle0;
+          document.getElementById("style-color-text-1").value =
+            preset.colorText1;
+          document.getElementById("style-color-circle-1").value =
+            preset.colorCircle1;
+          document.getElementById("style-color-text-2").value =
+            preset.colorText2;
+          document.getElementById("style-color-circle-2").value =
+            preset.colorCircle2;
+        }
+
+        toggleBgInputs();
+        toggleLinkInputs();
+        applyCustomStyles();
+        showToast(
+          `Tema ${themeName === "dark" ? "Escuro" : "Claro"} aplicado!`,
+        );
+      }
+
+      // Inicialização da página
+      document.addEventListener("DOMContentLoaded", () => {
+        loadStylesFromLocalStorage();
+        initIndexedDB(); // Inicializa IndexedDB para mídias locais e atualiza o mapa ao carregar o banco
+
+        // Inicia os mapas buscando do LocalStorage ou do maps.js
+        const savedMaps = localStorage.getItem("mindflow_maps_data");
+        if (savedMaps) {
+          try {
+            maps = JSON.parse(savedMaps);
+          } catch (err) {
+            console.error("Erro ao carregar mapas do LocalStorage:", err);
+            maps = window.MINDMAPS_DATA || [];
+          }
+        } else {
+          maps = window.MINDMAPS_DATA || [];
+        }
+
+        renderMapsList();
+
+        window.addEventListener("keydown", handleGlobalKeydowns);
+
+        setupLabelClickHandling();
+        setupCanvasHoverMenu();
+
+        toggleBgInputs();
+        toggleLinkInputs();
+        applyCustomStyles();
+      });
+    </script>
+  </body>
+</html>
